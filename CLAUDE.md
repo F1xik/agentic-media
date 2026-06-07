@@ -52,7 +52,7 @@ Stack: React 18, TypeScript, Vite 6, Tailwind v4 (`@tailwindcss/vite`), TanStack
 
 Node + TypeScript scripts run by GitHub Actions workflows:
 
-- `scripts/generate.ts` — orchestrates image fetch (Pollinations), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Opus** produces a spec, a second call to Claude **Haiku** (`scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`).
+- `scripts/generate.ts` — orchestrates image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Opus** produces a spec, a second call to Claude **Haiku** (`scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`).
 - `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
 - `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
 
@@ -86,7 +86,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 
 ### GitHub Actions workflows
 
-- `generate.yml` — `schedule:` cron + `workflow_dispatch`. Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pollinations image, composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage.
+- `generate.yml` — `schedule:` cron + `workflow_dispatch`. Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage.
 - `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
 
 ### Environment variables
@@ -98,7 +98,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`.
+GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
 
 Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only).
 
@@ -107,6 +107,6 @@ Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispa
 - Service-role key and YouTube secrets live **only** in GitHub Actions secrets — never in Vercel or the browser.
 - YouTube Shorts uploads via an unverified API project land as **private**; the owner manually publishes in YouTube Studio (or applies for a compliance audit). Default `privacyStatus` to `private`.
 - The upload must include `#Shorts` in the title or description — YouTube uses this to classify vertical videos as Shorts.
-- Background image from Pollinations.ai (`https://image.pollinations.ai/prompt/…`) is keyless/free — always implement a gradient/solid fallback so a failed fetch doesn't block the pipeline.
+- Background image from Pexels (`PEXELS_API_KEY` GitHub Actions secret, `https://api.pexels.com/v1/search`). Always implement a gradient/solid fallback so a missing key or failed fetch doesn't block the pipeline.
 - Text is composited onto the image with `sharp` (SVG overlay), not ffmpeg `drawtext`, to avoid font-path and escaping issues.
 - Claude Pro OAuth token expires ~1 year from issuance — note the rotation date.

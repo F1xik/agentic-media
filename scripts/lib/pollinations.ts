@@ -1,14 +1,10 @@
-// Fetch a background image from Pollinations (keyless/free), with a gradient
-// fallback so a failed/slow fetch never blocks the render pipeline.
+// Background image via Pexels (free, keyword-searchable stock photos).
+// Gradient fallback ensures a failed fetch never blocks the pipeline.
 
 import sharp from "sharp";
 import { WIDTH, HEIGHT } from "./textOverlay.ts";
 
-/** Build the Pollinations image URL for a prompt at portrait Shorts size. */
-export function pollinationsUrl(prompt: string): string {
-  const encoded = encodeURIComponent(prompt);
-  return `https://image.pollinations.ai/prompt/${encoded}?width=${WIDTH}&height=${HEIGHT}&nologo=true`;
-}
+const PEXELS_SEARCH = "https://api.pexels.com/v1/search";
 
 /** A solid-to-dark vertical gradient PNG used when the fetch fails. */
 export function gradientFallback(): Promise<Buffer> {
@@ -29,6 +25,8 @@ export type FetchBackgroundOptions = {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   retries?: number;
+  /** Pexels API key; defaults to PEXELS_API_KEY env var. */
+  apiKey?: string;
 };
 
 export type BackgroundResult = {
@@ -38,35 +36,62 @@ export type BackgroundResult = {
 };
 
 /**
- * Fetch the Pollinations image for `prompt`. Retries up to `retries` times
- * before falling back to the gradient. On any unrecoverable error resolves
- * with `usedFallback: true`.
+ * Search Pexels for a portrait photo matching `prompt`, download it, and
+ * resize to the frame dimensions. Retries up to `retries` times with
+ * exponential backoff. Falls back to the gradient on any unrecoverable error.
  */
 export async function fetchBackground(
   prompt: string,
   {
     fetchImpl = fetch,
-    timeoutMs = 90_000,
+    timeoutMs = 30_000,
     retries = 3,
+    apiKey = process.env.PEXELS_API_KEY,
   }: FetchBackgroundOptions = {},
 ): Promise<BackgroundResult> {
+  if (!apiKey) {
+    console.warn("PEXELS_API_KEY not set; using gradient fallback");
+    return { buffer: await gradientFallback(), usedFallback: true };
+  }
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetchImpl(pollinationsUrl(prompt), {
+      // 1. Search Pexels for a portrait photo matching the prompt.
+      const searchUrl = `${PEXELS_SEARCH}?query=${encodeURIComponent(prompt)}&orientation=portrait&per_page=1`;
+      const searchRes = await fetchImpl(searchUrl, {
         signal: controller.signal,
+        headers: { Authorization: apiKey },
       });
-      if (!res.ok) throw new Error(`Pollinations responded ${res.status}`);
-      const buffer = Buffer.from(await res.arrayBuffer());
+      if (!searchRes.ok)
+        throw new Error(`Pexels search responded ${searchRes.status}`);
+
+      const json = (await searchRes.json()) as {
+        photos: { src: { portrait: string } }[];
+      };
+      if (!json.photos?.length) throw new Error("Pexels returned no photos");
+
+      // 2. Download the portrait-cropped image and resize to frame dimensions.
+      const photoUrl = json.photos[0].src.portrait;
+      const imgRes = await fetchImpl(photoUrl, { signal: controller.signal });
+      if (!imgRes.ok)
+        throw new Error(`Pexels photo download responded ${imgRes.status}`);
+
+      const raw = Buffer.from(await imgRes.arrayBuffer());
+      const buffer = await sharp(raw)
+        .resize(WIDTH, HEIGHT, { fit: "cover" })
+        .png()
+        .toBuffer();
+
       return { buffer, usedFallback: false };
     } catch {
       if (attempt === retries) break;
-      // Brief pause before retry so Pollinations isn't hammered.
       await new Promise((r) => setTimeout(r, 2_000 * attempt));
     } finally {
       clearTimeout(timer);
     }
   }
+
   return { buffer: await gradientFallback(), usedFallback: true };
 }
