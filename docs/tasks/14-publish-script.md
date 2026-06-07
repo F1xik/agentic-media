@@ -4,7 +4,7 @@
 **Depends on:** 08, 17
 
 ## Objective
-Upload an approved video to YouTube and record the result, idempotently.
+Upload an approved video to YouTube Shorts and record the result, idempotently.
 
 ## Checklist
 - [ ] Read the `videos` row by id (from dispatch payload); set `status='publishing'`.
@@ -12,10 +12,11 @@ Upload an approved video to YouTube and record the result, idempotently.
 - [ ] Download the mp4 from Storage with the service-role key.
 - [ ] Upload via `googleapis` `youtube.videos.insert` (scope `youtube.upload`, OAuth2
       with stored refresh token).
-- [ ] Build title/description from `fact_text` + topic + music attribution.
+- [ ] Build title/description from `fact_text` + topic + music attribution; **append
+      `#Shorts`** so YouTube classifies the upload as a Short.
 - [ ] Default `privacyStatus` to `private`/`unlisted` (unverified-app lock caveat).
 - [ ] On success set `status='published'` + `youtube_id`/`youtube_url`; else `failed` + `error`.
 
 ## Done when
-- An approved video uploads to YouTube and the row becomes `published` with id/url.
+- An approved video uploads to YouTube Shorts and the row becomes `published` with id/url.
 - Re-running the script for the same video is a no-op.

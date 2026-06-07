@@ -1,14 +1,14 @@
-# Plan — Automated "Fun Facts" YouTube Video Pipeline
+# Plan — Automated "Fun Facts" YouTube Shorts Pipeline
 
 ## 1. Context & goal
 
-`agentic-media` is an automated, faceless-YouTube content pipeline. End to end it:
+`agentic-media` is an automated, faceless-YouTube Shorts content pipeline. End to end it:
 
 1. **Selects a topic** from a predefined area (*fun facts / TIL*) using **Claude**.
-2. **Generates a video** — one AI-generated background image with the fact text
-   overlaid, plus a royalty-free soundtrack.
+2. **Generates a Short** — one AI-generated vertical (1080×1920, ≤60 s) background image
+   with the fact text overlaid, plus a royalty-free soundtrack.
 3. Surfaces the result in a **web dashboard** where the **owner reviews** it.
-4. **Publishes to YouTube only after the owner approves** (human-in-the-loop gate).
+4. **Publishes to YouTube Shorts only after the owner approves** (human-in-the-loop gate).
 
 ### Requirements mapped
 | Requirement | How it is met |
@@ -19,8 +19,9 @@
 | Wait for confirmation before publish | `pending_review → approved` gate in the dashboard |
 | Uses Claude | Claude Code headless in Actions (Pro OAuth token) picks topic + writes copy |
 | Prefer free tier | Claude Pro (no API billing), Supabase free, Vercel free, Pollinations free, free runners |
-| Video = picture + text | Pollinations image + text composited with `sharp`, rendered by FFmpeg |
+| Short = picture + text | Pollinations image + text composited with `sharp`, rendered by FFmpeg (1080×1920, ≤60 s) |
 | Popular open soundtrack | Curated CC0 / CC-BY tracks committed in `assets/music/` |
+| YouTube Shorts detection | Title or description must include `#Shorts` so YouTube classifies the upload correctly |
 
 ### Confirmed decisions
 - **Topic area:** Fun facts / TIL.
@@ -137,8 +138,11 @@ short-lived **signed URL**; Actions uploads with the service-role key.
 - Steps: read `videos` row (id from payload) → set `publishing` → download mp4 from
   Storage → **YouTube upload** via `googleapis` `youtube.videos.insert` (scope
   `youtube.upload`, OAuth2 with stored refresh token; title/description from
-  `fact_text` + topic + music attribution; `privacyStatus`) → set `published` +
-  `youtube_id/url`, else `failed`. **Idempotency:** no-op if `youtube_id` already set.
+  `fact_text` + topic + music attribution + **`#Shorts`** hashtag; `privacyStatus`) →
+  set `published` + `youtube_id/url`, else `failed`.
+  **Idempotency:** no-op if `youtube_id` already set.
+  **`#Shorts` is required** in the title or description for YouTube to classify the
+  upload as a Short.
 - Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`,
   `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`.
 

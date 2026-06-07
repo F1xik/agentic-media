@@ -1,4 +1,4 @@
-# Tasks — Automated "Fun Facts" YouTube Pipeline
+# Tasks — Automated "Fun Facts" YouTube Shorts Pipeline
 
 Atomic, independently-reviewable tasks decomposed from [`../plan.md`](../plan.md).
 Each file follows a lightweight checklist format (objective → checklist → done-when)
