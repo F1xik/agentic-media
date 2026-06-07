@@ -15,7 +15,7 @@ import {
   bumpTopic,
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution, MUSIC_DIR } from "./lib/musicAssets.ts";
-import { requestGenerationSpec } from "./lib/generationSpec.ts";
+import { produceReviewedSpec } from "./lib/producer.ts";
 import { fetchBackground } from "./lib/pollinations.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 
@@ -36,10 +36,23 @@ export async function generate(): Promise<string> {
   try {
     await appendLog(id, "init", "info", "generation started");
 
-    // 1. Ask Claude for a spec, biased away from recently-used topics.
+    // 1. Produce a spec, biased away from recently-used topics, and have the
+    //    evaluator cross-check it; retry with feedback until approved (or fail).
     const avoidTopics = await recentTopics();
     const validMusicIds = parseCredits().map((t) => t.id);
-    const spec = await requestGenerationSpec({ avoidTopics, validMusicIds });
+    const { spec } = await produceReviewedSpec({
+      avoidTopics,
+      validMusicIds,
+      onRound: ({ attempt, verdict }) =>
+        appendLog(
+          id,
+          "evaluate",
+          verdict.approved ? "info" : "warn",
+          verdict.approved
+            ? `approved on attempt ${attempt}`
+            : `attempt ${attempt} rejected: ${verdict.issues.join("; ")}`,
+        ),
+    });
     const musicAttribution = getAttribution(spec.music);
     await updateVideo(id, {
       topic: spec.topic,

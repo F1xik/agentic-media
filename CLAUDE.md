@@ -52,7 +52,7 @@ Stack: React 18, TypeScript, Vite 6, Tailwind v4 (`@tailwindcss/vite`), TanStack
 
 Node + TypeScript scripts run by GitHub Actions workflows:
 
-- `scripts/generate.ts` — orchestrates image fetch (Pollinations), text compositing (sharp), FFmpeg render, Storage upload, DB insert.
+- `scripts/generate.ts` — orchestrates image fetch (Pollinations), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude produces a spec, a second Claude call (`scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved).
 - `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
 - `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
 

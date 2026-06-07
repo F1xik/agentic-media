@@ -27,6 +27,35 @@ describe("buildPrompt", () => {
   it("handles an empty avoid list", () => {
     expect(buildPrompt([], MUSIC)).toContain("no recently-used topics");
   });
+
+  it("encodes every quality constraint", () => {
+    const prompt = buildPrompt([], MUSIC);
+    expect(prompt).toContain("ONE JSON object");
+    expect(prompt).toContain("no prose, no code fences");
+    expect(prompt).toContain("2-4 words");
+    expect(prompt).toContain("No hashtags");
+    expect(prompt).toContain("no text in the image");
+    expect(prompt).toContain("surprising, verifiable, well-known");
+  });
+
+  it("appends evaluator feedback when provided", () => {
+    const prompt = buildPrompt(["space"], MUSIC, [
+      "fact is not surprising",
+      "topic has too many words",
+    ]);
+    expect(prompt).toContain("A previous attempt was rejected by the editor");
+    expect(prompt).toContain("- fact is not surprising");
+    expect(prompt).toContain("- topic has too many words");
+  });
+
+  it("omits the feedback block when there is no feedback", () => {
+    expect(buildPrompt(["space"], MUSIC)).not.toContain(
+      "A previous attempt was rejected",
+    );
+    expect(buildPrompt(["space"], MUSIC, [])).not.toContain(
+      "A previous attempt was rejected",
+    );
+  });
 });
 
 describe("parseGenerationSpec", () => {
@@ -97,5 +126,21 @@ describe("requestGenerationSpec", () => {
       run,
     });
     expect(spec).toEqual(validSpec);
+  });
+
+  it("forwards evaluator feedback into the prompt", async () => {
+    const run = vi.fn().mockResolvedValue(JSON.stringify(validSpec));
+    await requestGenerationSpec({
+      avoidTopics: [],
+      validMusicIds: MUSIC,
+      feedback: ["fact is not surprising"],
+      run,
+    });
+    expect(run).toHaveBeenCalledWith("claude", [
+      "-p",
+      expect.stringContaining("fact is not surprising"),
+      "--output-format",
+      "json",
+    ]);
   });
 });
