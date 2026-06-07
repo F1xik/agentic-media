@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import { compositeFrame, ffmpegArgs, renderVideo } from "./render.ts";
-import { gradientFallback } from "./pollinations.ts";
+import { gradientFallback } from "./backgroundImage.ts";
 
 describe("ffmpegArgs", () => {
   it("builds the still-image + music render command", () => {

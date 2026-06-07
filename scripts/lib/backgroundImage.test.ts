@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
-import { gradientFallback, fetchBackground } from "./pollinations.ts";
+import { gradientFallback, fetchBackground } from "./backgroundImage.ts";
 
 const FAKE_KEY = "test-key";
 
