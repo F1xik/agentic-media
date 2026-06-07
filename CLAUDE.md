@@ -17,6 +17,8 @@ npm run preview      # preview the production build
 
 Run a single test file: `npx vitest run src/path/to/file.test.tsx`
 
+**All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)`; changed behaviour gets updated tests. Tests live next to the source file they cover (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
+
 Pre-commit hook runs `lint && format:check && typecheck` — all three must pass before commit.
 
 CI pipeline (`.github/workflows/ci.yml`) runs lint → format:check → typecheck → build → test.
