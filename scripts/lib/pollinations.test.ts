@@ -1,80 +1,109 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
-import {
-  pollinationsUrl,
-  gradientFallback,
-  fetchBackground,
-} from "./pollinations.ts";
+import { gradientFallback, fetchBackground } from "./pollinations.ts";
 
-describe("pollinationsUrl", () => {
-  it("encodes the prompt and sets portrait dimensions", () => {
-    const url = pollinationsUrl("an octopus & coral");
-    expect(url).toContain("image.pollinations.ai/prompt/");
-    expect(url).toContain("an%20octopus%20%26%20coral");
-    expect(url).toContain("width=1080&height=1920&nologo=true");
-  });
-});
+const FAKE_KEY = "test-key";
+
+// Minimal valid 1×1 RGB PNG — sharp can resize this to any dimensions.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+/** Minimal Pexels search response with one portrait photo URL. */
+function pexelsSearchResponse(portraitUrl: string) {
+  return {
+    ok: true,
+    json: async () => ({
+      photos: [{ src: { portrait: portraitUrl } }],
+    }),
+  };
+}
 
 describe("gradientFallback", () => {
   it("produces a PNG buffer at frame size", async () => {
     const buffer = await gradientFallback();
     expect(buffer.length).toBeGreaterThan(0);
-    // PNG magic number.
     expect(buffer.subarray(0, 4).toString("hex")).toBe("89504e47");
   });
 });
 
 describe("fetchBackground", () => {
-  it("returns the fetched bytes on success", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
-    });
+  it("returns a PNG buffer on success", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        pexelsSearchResponse("https://example.com/photo.jpg"),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Uint8Array.from(TINY_PNG).buffer,
+      });
 
     const result = await fetchBackground("ocean", {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiKey: FAKE_KEY,
     });
 
     expect(result.usedFallback).toBe(false);
-    expect([...result.buffer]).toEqual([1, 2, 3]);
+    expect(result.buffer.subarray(0, 4).toString("hex")).toBe("89504e47");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // First call must include the Authorization header.
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({
+      headers: { Authorization: FAKE_KEY },
+    });
   });
 
-  it("falls back to the gradient on a non-OK response after all retries", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+  it("uses gradient fallback when no API key is set", async () => {
+    const fetchImpl = vi.fn();
     const result = await fetchBackground("ocean", {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiKey: undefined,
+    });
+    expect(result.usedFallback).toBe(true);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("falls back to gradient after all retries on a non-OK search response", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 403 });
+    const result = await fetchBackground("ocean", {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiKey: FAKE_KEY,
       retries: 1,
     });
     expect(result.usedFallback).toBe(true);
     expect(result.buffer.subarray(0, 4).toString("hex")).toBe("89504e47");
   });
 
-  it("falls back to the gradient when the fetch throws after all retries", async () => {
+  it("falls back to gradient after all retries when fetch throws", async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error("network down"));
     const result = await fetchBackground("ocean", {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiKey: FAKE_KEY,
       retries: 1,
     });
     expect(result.usedFallback).toBe(true);
-    expect(result.buffer.length).toBeGreaterThan(0);
   });
 
   it("succeeds on a later retry after an initial failure", async () => {
     const fetchImpl = vi
       .fn()
       .mockRejectedValueOnce(new Error("timeout"))
-      .mockResolvedValue({
+      .mockResolvedValueOnce(
+        pexelsSearchResponse("https://example.com/photo.jpg"),
+      )
+      .mockResolvedValueOnce({
         ok: true,
-        arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
+        arrayBuffer: async () => Uint8Array.from(TINY_PNG).buffer,
       });
 
     const result = await fetchBackground("ocean", {
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      apiKey: FAKE_KEY,
       retries: 2,
     });
 
     expect(result.usedFallback).toBe(false);
-    expect([...result.buffer]).toEqual([9, 8, 7]);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-  });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  }, 10_000); // allows for the 2s backoff between retries
 });
