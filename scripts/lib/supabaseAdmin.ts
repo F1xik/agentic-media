@@ -54,6 +54,43 @@ export async function updateVideo(
   if (error) throw error;
 }
 
+// ── topics ────────────────────────────────────────────────────────────────────
+
+/** Most recently-used topic areas (highest `used_count` first) to bias against. */
+export async function recentTopics(limit = 10): Promise<string[]> {
+  const { data, error } = await adminClient
+    .from("topics")
+    .select("area")
+    .order("used_count", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => (row as { area: string }).area);
+}
+
+/** Record use of a topic area: increment `used_count`, inserting it if new. */
+export async function bumpTopic(area: string): Promise<void> {
+  const { data, error } = await adminClient
+    .from("topics")
+    .select("id, used_count")
+    .eq("area", area)
+    .maybeSingle();
+  if (error) throw error;
+
+  if (data) {
+    const row = data as { id: number; used_count: number };
+    const { error: updateError } = await adminClient
+      .from("topics")
+      .update({ used_count: row.used_count + 1 })
+      .eq("id", row.id);
+    if (updateError) throw updateError;
+  } else {
+    const { error: insertError } = await adminClient
+      .from("topics")
+      .insert({ area, used_count: 1 });
+    if (insertError) throw insertError;
+  }
+}
+
 // ── run_logs ──────────────────────────────────────────────────────────────────
 
 export async function appendLog(
