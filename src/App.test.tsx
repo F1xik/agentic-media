@@ -39,8 +39,6 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "agentic-media" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Send magic link" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
   });
 });
