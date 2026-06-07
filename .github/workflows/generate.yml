@@ -1,0 +1,40 @@
+name: Generate video
+
+on:
+  # One short generation per day; kept modest to respect Claude Pro token limits.
+  schedule:
+    - cron: "0 9 * * *"
+  # Manual "Generate now" trigger from the Actions tab / dashboard dispatch.
+  workflow_dispatch:
+
+# Avoid overlapping runs racing on topic selection / token usage.
+concurrency:
+  group: generate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify ffmpeg is available
+        run: ffmpeg -version
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate video
+        run: npm run generate
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
