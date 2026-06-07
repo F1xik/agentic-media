@@ -26,5 +26,26 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["scripts/**/*.ts"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/scripts/**"],
+              message:
+                "Admin client (scripts/) must not be imported by the frontend.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );
