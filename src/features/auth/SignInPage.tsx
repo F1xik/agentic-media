@@ -10,6 +10,13 @@ export function SignInPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const ownerEmail = import.meta.env.VITE_OWNER_EMAIL;
+    if (ownerEmail && email.toLowerCase() !== ownerEmail.toLowerCase()) {
+      setError("This email is not authorized.");
+      return;
+    }
+
     setLoading(true);
     try {
       await signIn(email);
