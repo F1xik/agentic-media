@@ -24,6 +24,8 @@ import {
   updateVideo,
   appendLog,
   uploadVideo,
+  recentTopics,
+  bumpTopic,
 } from "./supabaseAdmin.ts";
 
 beforeEach(() => {
@@ -106,6 +108,75 @@ describe("appendLog", () => {
     await expect(
       appendLog("video-uuid", "step", "error", "boom"),
     ).rejects.toThrow("log error");
+  });
+});
+
+describe("recentTopics", () => {
+  it("returns areas ordered by used_count", async () => {
+    const mockLimit = vi.fn().mockResolvedValue({
+      data: [{ area: "space" }, { area: "history" }],
+      error: null,
+    });
+    const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockSelect = vi.fn().mockReturnValue({ order: mockOrder });
+    mockFrom.mockReturnValue({ select: mockSelect });
+
+    const areas = await recentTopics(5);
+    expect(mockFrom).toHaveBeenCalledWith("topics");
+    expect(mockOrder).toHaveBeenCalledWith("used_count", { ascending: false });
+    expect(mockLimit).toHaveBeenCalledWith(5);
+    expect(areas).toEqual(["space", "history"]);
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        order: () => ({
+          limit: vi.fn().mockResolvedValue({
+            data: null,
+            error: new Error("topics error"),
+          }),
+        }),
+      }),
+    });
+    await expect(recentTopics()).rejects.toThrow("topics error");
+  });
+});
+
+describe("bumpTopic", () => {
+  it("increments used_count for an existing topic", async () => {
+    const mockUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const mockMaybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: { id: 7, used_count: 2 }, error: null });
+    mockFrom.mockReturnValue({
+      select: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }),
+      update: (payload: unknown) => {
+        expect(payload).toEqual({ used_count: 3 });
+        return { eq: mockUpdateEq };
+      },
+    });
+
+    await bumpTopic("space");
+    expect(mockUpdateEq).toHaveBeenCalledWith("id", 7);
+  });
+
+  it("inserts a new topic at used_count 1", async () => {
+    const mockInsert = vi.fn().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+      insert: mockInsert,
+    });
+
+    await bumpTopic("new area");
+    expect(mockInsert).toHaveBeenCalledWith({
+      area: "new area",
+      used_count: 1,
+    });
   });
 });
 
