@@ -21,6 +21,12 @@ Pre-commit hook runs `lint && format:check && typecheck` — all three must pass
 
 CI pipeline (`.github/workflows/ci.yml`) runs lint → format:check → typecheck → build → test.
 
+Before committing, run the full CI check sequence locally:
+
+```bash
+npm run lint && npm run format:check && npm run typecheck && npm run build && npm run test
+```
+
 ## Architecture
 
 `agentic-media` is an automated faceless-YouTube Shorts content pipeline. The three main systems are:
