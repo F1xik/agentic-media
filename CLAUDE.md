@@ -43,6 +43,7 @@ Stack: React 18, TypeScript, Vite 6, Tailwind v4 (`@tailwindcss/vite`), TanStack
 ### Pipeline scripts (`scripts/`)
 
 Node + TypeScript scripts run by GitHub Actions workflows:
+
 - `scripts/generate.ts` — orchestrates image fetch (Pollinations), text compositing (sharp), FFmpeg render, Storage upload, DB insert.
 - `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
 - `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
@@ -50,6 +51,7 @@ Node + TypeScript scripts run by GitHub Actions workflows:
 ### Database (Supabase)
 
 Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
+
 - `topics` — predefined seed areas and used counts to bias Claude.
 - `videos` — one row per video; status follows the state machine below.
 - `run_logs` — append-only per-video step log.
@@ -57,9 +59,11 @@ Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
 **Migrations** in `supabase/migrations/` are auto-applied via the Supabase GitHub integration when commits land on `main`. No manual `supabase db push` is needed.
 
 **Owner configuration:** after creating the owner user, run once as a privileged role:
+
 ```sql
 alter database postgres set app.owner_id = '<auth.uid>';
 ```
+
 Until set, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
 
 ### `videos.status` state machine
@@ -80,6 +84,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 ### Environment variables
 
 Frontend (`.env.local`):
+
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
