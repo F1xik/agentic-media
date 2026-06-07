@@ -28,6 +28,7 @@ export type FetchBackgroundOptions = {
   /** Injectable fetch for tests; defaults to the global `fetch`. */
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  retries?: number;
 };
 
 export type BackgroundResult = {
@@ -37,25 +38,35 @@ export type BackgroundResult = {
 };
 
 /**
- * Fetch the Pollinations image for `prompt`. On any error (network, timeout,
- * non-OK status) resolve with the gradient fallback and `usedFallback: true`.
+ * Fetch the Pollinations image for `prompt`. Retries up to `retries` times
+ * before falling back to the gradient. On any unrecoverable error resolves
+ * with `usedFallback: true`.
  */
 export async function fetchBackground(
   prompt: string,
-  { fetchImpl = fetch, timeoutMs = 30_000 }: FetchBackgroundOptions = {},
+  {
+    fetchImpl = fetch,
+    timeoutMs = 90_000,
+    retries = 3,
+  }: FetchBackgroundOptions = {},
 ): Promise<BackgroundResult> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetchImpl(pollinationsUrl(prompt), {
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`Pollinations responded ${res.status}`);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return { buffer, usedFallback: false };
-  } catch {
-    return { buffer: await gradientFallback(), usedFallback: true };
-  } finally {
-    clearTimeout(timer);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetchImpl(pollinationsUrl(prompt), {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`Pollinations responded ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return { buffer, usedFallback: false };
+    } catch {
+      if (attempt === retries) break;
+      // Brief pause before retry so Pollinations isn't hammered.
+      await new Promise((r) => setTimeout(r, 2_000 * attempt));
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  return { buffer: await gradientFallback(), usedFallback: true };
 }
