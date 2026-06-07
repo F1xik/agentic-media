@@ -21,6 +21,9 @@ coverage
 .env.local
 .env.*.local
 
+# Supabase local CLI state (not for version control)
+supabase/.temp
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json
