@@ -16,7 +16,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution, MUSIC_DIR } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
-import { fetchBackground } from "./lib/pollinations.ts";
+import { fetchBackground } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 
 const FRAME_PATH = "frame.png";

@@ -17,7 +17,7 @@ vi.mock("./lib/musicAssets.ts", () => ({
 vi.mock("./lib/producer.ts", () => ({
   produceReviewedSpec: vi.fn(),
 }));
-vi.mock("./lib/pollinations.ts", () => ({
+vi.mock("./lib/backgroundImage.ts", () => ({
   fetchBackground: vi.fn(),
 }));
 vi.mock("./lib/render.ts", () => ({
@@ -40,7 +40,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
-import { fetchBackground } from "./lib/pollinations.ts";
+import { fetchBackground } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 import { readFile, writeFile } from "node:fs/promises";
 
