@@ -4,8 +4,16 @@ import {
   buildEvaluatorPrompt,
   parseVerdict,
   evaluateSpec,
+  EVALUATION_MODEL,
 } from "./specEvaluator.ts";
-import { MAX_FACT_LENGTH } from "./generationSpec.ts";
+import { MAX_FACT_LENGTH, GENERATION_MODEL } from "./generationSpec.ts";
+
+describe("model selection", () => {
+  it("evaluates with Haiku and generates with Sonnet", () => {
+    expect(EVALUATION_MODEL).toBe("haiku");
+    expect(GENERATION_MODEL).toBe("sonnet");
+  });
+});
 
 const MUSIC = ["carefree", "inspired", "wholesome"];
 
@@ -102,6 +110,8 @@ describe("evaluateSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("Octopuses have three hearts"),
+      "--model",
+      "haiku",
       "--output-format",
       "json",
     ]);

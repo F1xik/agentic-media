@@ -11,6 +11,9 @@ import {
   extractJsonObject,
 } from "./generationSpec.ts";
 
+/** Evaluation is a cheaper checking task; use the faster, cheaper Haiku model. */
+export const EVALUATION_MODEL = "haiku";
+
 /** The evaluator's structured judgement: approve, plus any blocking issues. */
 export type Verdict = { approved: boolean; issues: string[] };
 
@@ -68,7 +71,14 @@ export async function evaluateSpec({
   run = defaultRunner,
 }: EvaluateOptions): Promise<Verdict> {
   const prompt = buildEvaluatorPrompt(spec, validMusicIds);
-  const stdout = await run("claude", ["-p", prompt, "--output-format", "json"]);
+  const stdout = await run("claude", [
+    "-p",
+    prompt,
+    "--model",
+    EVALUATION_MODEL,
+    "--output-format",
+    "json",
+  ]);
 
   // `--output-format json` wraps the reply in an envelope: { result, ... }.
   let result = stdout;

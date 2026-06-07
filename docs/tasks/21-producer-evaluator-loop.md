@@ -4,9 +4,10 @@
 **Depends on:** 10
 
 ## Objective
-Cross-check generated text before it reaches review. A second **Claude** call acts as
-an LLM-as-judge that evaluates each spec on **factual accuracy**, **format/constraints**,
-and **engagement**; on rejection its critique is fed back into the producer and we retry.
+Cross-check generated text before it reaches review. Generation uses Claude **Sonnet**;
+a second call to Claude **Haiku** acts as an LLM-as-judge that evaluates each spec on
+**factual accuracy**, **format/constraints**, and **engagement**; on rejection its critique
+is fed back into the producer and we retry. Model per role is set via the CLI `--model` flag.
 
 ## Checklist
 - [x] `buildPrompt` accepts optional evaluator `feedback`, appended to the prompt on retry.

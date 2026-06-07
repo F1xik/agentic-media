@@ -113,6 +113,8 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("space"),
+      "--model",
+      "sonnet",
       "--output-format",
       "json",
     ]);
@@ -139,6 +141,8 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("fact is not surprising"),
+      "--model",
+      "sonnet",
       "--output-format",
       "json",
     ]);

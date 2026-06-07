@@ -6,6 +6,9 @@ import { spawn } from "node:child_process";
 
 export const MAX_FACT_LENGTH = 160;
 
+/** Generation is the harder creative task; use the more capable Sonnet model. */
+export const GENERATION_MODEL = "sonnet";
+
 export type GenerationSpec = {
   topic: string;
   fact_text: string;
@@ -150,7 +153,14 @@ export async function requestGenerationSpec({
   run = defaultRunner,
 }: RequestOptions): Promise<GenerationSpec> {
   const prompt = buildPrompt(avoidTopics, validMusicIds, feedback);
-  const stdout = await run("claude", ["-p", prompt, "--output-format", "json"]);
+  const stdout = await run("claude", [
+    "-p",
+    prompt,
+    "--model",
+    GENERATION_MODEL,
+    "--output-format",
+    "json",
+  ]);
 
   // `--output-format json` wraps the reply in an envelope: { result, ... }.
   let result = stdout;
