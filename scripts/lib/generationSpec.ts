@@ -6,6 +6,9 @@ import { spawn } from "node:child_process";
 
 export const MAX_FACT_LENGTH = 160;
 
+/** Generation is the harder creative task; use the most capable Opus model. */
+export const GENERATION_MODEL = "opus";
+
 export type GenerationSpec = {
   topic: string;
   fact_text: string;
@@ -17,14 +20,22 @@ export type GenerationSpec = {
 /** A shell runner abstraction so the Claude call can be mocked in tests. */
 export type CommandRunner = (cmd: string, args: string[]) => Promise<string>;
 
-/** Build the Claude prompt, biased away from recently-used topics. */
-export function buildPrompt(avoidTopics: string[], musicIds: string[]): string {
+/**
+ * Build the Claude prompt, biased away from recently-used topics. When a prior
+ * attempt was rejected by the evaluator, its critique is passed as `feedback`
+ * and appended so the next attempt can correct the flagged issues.
+ */
+export function buildPrompt(
+  avoidTopics: string[],
+  musicIds: string[],
+  feedback: string[] = [],
+): string {
   const avoid =
     avoidTopics.length > 0
       ? `Avoid these recently-used topics: ${avoidTopics.join(", ")}.`
       : "There are no recently-used topics to avoid yet.";
 
-  return [
+  const lines = [
     "You are scripting a faceless YouTube Shorts channel of surprising, true fun facts.",
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     "Schema:",
@@ -33,11 +44,20 @@ export function buildPrompt(avoidTopics: string[], musicIds: string[]): string {
     `- fact_text: ONE surprising, verifiable, well-known fact, at most ${MAX_FACT_LENGTH} characters. No hashtags.`,
     "- image_prompt: a vivid description for a vertical background image (no text in the image).",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
-  ].join("\n");
+  ];
+
+  if (feedback.length > 0) {
+    lines.push(
+      "A previous attempt was rejected by the editor. Fix these issues:",
+      ...feedback.map((issue) => `- ${issue}`),
+    );
+  }
+
+  return lines.join("\n");
 }
 
 /** Spawn `claude`, capturing stdout (rejects on non-zero exit). */
-const defaultRunner: CommandRunner = (cmd, args) =>
+export const defaultRunner: CommandRunner = (cmd, args) =>
   new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
@@ -52,7 +72,7 @@ const defaultRunner: CommandRunner = (cmd, args) =>
   });
 
 /** Extract the first balanced `{…}` JSON object from arbitrary text. */
-function extractJsonObject(text: string): string {
+export function extractJsonObject(text: string): string {
   const start = text.indexOf("{");
   if (start === -1) throw new Error("no JSON object found in Claude output");
   let depth = 0;
@@ -116,6 +136,8 @@ export function parseGenerationSpec(
 export type RequestOptions = {
   avoidTopics: string[];
   validMusicIds: string[];
+  /** Evaluator critique from a prior rejected attempt, fed back into the prompt. */
+  feedback?: string[];
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
   run?: CommandRunner;
 };
@@ -127,10 +149,18 @@ export type RequestOptions = {
 export async function requestGenerationSpec({
   avoidTopics,
   validMusicIds,
+  feedback = [],
   run = defaultRunner,
 }: RequestOptions): Promise<GenerationSpec> {
-  const prompt = buildPrompt(avoidTopics, validMusicIds);
-  const stdout = await run("claude", ["-p", prompt, "--output-format", "json"]);
+  const prompt = buildPrompt(avoidTopics, validMusicIds, feedback);
+  const stdout = await run("claude", [
+    "-p",
+    prompt,
+    "--model",
+    GENERATION_MODEL,
+    "--output-format",
+    "json",
+  ]);
 
   // `--output-format json` wraps the reply in an envelope: { result, ... }.
   let result = stdout;

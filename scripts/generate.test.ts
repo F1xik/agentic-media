@@ -14,8 +14,8 @@ vi.mock("./lib/musicAssets.ts", () => ({
   getAttribution: vi.fn(),
   MUSIC_DIR: "/music",
 }));
-vi.mock("./lib/generationSpec.ts", () => ({
-  requestGenerationSpec: vi.fn(),
+vi.mock("./lib/producer.ts", () => ({
+  produceReviewedSpec: vi.fn(),
 }));
 vi.mock("./lib/pollinations.ts", () => ({
   fetchBackground: vi.fn(),
@@ -39,7 +39,7 @@ import {
   bumpTopic,
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution } from "./lib/musicAssets.ts";
-import { requestGenerationSpec } from "./lib/generationSpec.ts";
+import { produceReviewedSpec } from "./lib/producer.ts";
 import { fetchBackground } from "./lib/pollinations.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 import { readFile, writeFile } from "node:fs/promises";
@@ -63,7 +63,11 @@ function happyPath() {
       attribution: "attr",
     },
   ]);
-  vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
+  vi.mocked(produceReviewedSpec).mockImplementation(async ({ onRound }) => {
+    const verdict = { approved: true, issues: [] };
+    await onRound?.({ attempt: 1, spec, verdict });
+    return { spec, verdict, attempts: 1 };
+  });
   vi.mocked(getAttribution).mockReturnValue("Carefree attribution");
   vi.mocked(fetchBackground).mockResolvedValue({
     buffer: Buffer.from("bg"),
@@ -90,10 +94,17 @@ describe("generate", () => {
       status: "generating",
       run_id: process.env.GITHUB_RUN_ID,
     });
-    expect(requestGenerationSpec).toHaveBeenCalledWith({
+    expect(produceReviewedSpec).toHaveBeenCalledWith({
       avoidTopics: ["space"],
       validMusicIds: ["carefree"],
+      onRound: expect.any(Function),
     });
+    expect(appendLog).toHaveBeenCalledWith(
+      "vid-1",
+      "evaluate",
+      "info",
+      "approved on attempt 1",
+    );
     expect(writeFile).toHaveBeenCalledWith("frame.png", expect.any(Buffer));
     expect(renderVideo).toHaveBeenCalledWith({
       framePath: "frame.png",
@@ -123,6 +134,21 @@ describe("generate", () => {
       "warn",
       expect.stringContaining("fallback"),
     );
+  });
+
+  it("marks the row failed when the evaluator loop is exhausted", async () => {
+    happyPath();
+    vi.mocked(produceReviewedSpec).mockRejectedValue(
+      new Error("generation rejected after 3 attempts: unverifiable claim"),
+    );
+
+    await expect(generate()).rejects.toThrow(/rejected after 3 attempts/);
+
+    expect(updateVideo).toHaveBeenCalledWith("vid-1", {
+      status: "failed",
+      error: "generation rejected after 3 attempts: unverifiable claim",
+    });
+    expect(uploadVideo).not.toHaveBeenCalled();
   });
 
   it("marks the row failed and rethrows on a step error", async () => {
