@@ -6,8 +6,8 @@ import { spawn } from "node:child_process";
 
 export const MAX_FACT_LENGTH = 160;
 
-/** Generation is the harder creative task; use the more capable Sonnet model. */
-export const GENERATION_MODEL = "sonnet";
+/** Generation is the harder creative task; use the most capable Opus model. */
+export const GENERATION_MODEL = "opus";
 
 export type GenerationSpec = {
   topic: string;

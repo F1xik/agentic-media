@@ -9,9 +9,9 @@ import {
 import { MAX_FACT_LENGTH, GENERATION_MODEL } from "./generationSpec.ts";
 
 describe("model selection", () => {
-  it("evaluates with Haiku and generates with Sonnet", () => {
+  it("evaluates with Haiku and generates with Opus", () => {
     expect(EVALUATION_MODEL).toBe("haiku");
-    expect(GENERATION_MODEL).toBe("sonnet");
+    expect(GENERATION_MODEL).toBe("opus");
   });
 });
 
