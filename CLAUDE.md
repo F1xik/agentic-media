@@ -62,7 +62,7 @@ Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
 - `videos` — one row per video; status follows the state machine below.
 - `run_logs` — append-only per-video step log.
 
-**Migrations** in `supabase/migrations/` are auto-applied via the Supabase GitHub integration when commits land on `main`. No manual `supabase db push` is needed.
+**Migrations** in `supabase/migrations/` are applied automatically by `.github/workflows/migrate.yml` when commits that touch `supabase/migrations/**` land on `main`. The workflow uses two Actions secrets: `SUPABASE_ACCESS_TOKEN` (personal access token from supabase.com/dashboard/account/tokens) and `SUPABASE_DB_PASSWORD` (database password from Project Settings → Database). The workflow can also be triggered manually via `workflow_dispatch`. No manual `supabase db push` is needed after secrets are set.
 
 **Owner configuration:** after creating the owner user, run once as a privileged role:
 
@@ -96,7 +96,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`.
+GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`.
 
 Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only).
 

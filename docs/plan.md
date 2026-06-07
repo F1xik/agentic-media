@@ -89,9 +89,9 @@ dispatch token — no YouTube/Supabase secrets.
 
 Lower-case SQL, RLS keyed to `auth.uid()`, per-status indexes.
 
-**Migration deployment:** the repo is linked to the Supabase project via the Supabase
-GitHub app integration. Any migration added to `supabase/migrations/` is applied
-automatically when the commit lands on `main` — no manual `supabase db push` is needed.
+**Migration deployment:** `.github/workflows/migrate.yml` runs `supabase db push`
+automatically whenever a commit that touches `supabase/migrations/**` lands on `main`.
+Requires `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` Actions secrets.
 `supabase/.temp/` (local CLI state) is gitignored and never committed.
 
 - **`topics`** — predefined seed areas / recently-used topics to bias Claude and avoid
@@ -214,8 +214,8 @@ Music Archive) with `assets/music/CREDITS.md`. Store the chosen track's attribut
 
 ## 11. Build order
 1. **Scaffold + deploy skeleton** — Vite app from house conventions; Supabase project
-   linked via GitHub integration (migrations auto-apply on push to `main`); migration
-   `0001` (tables, RLS, `is_owner()`, Storage bucket); deploy empty dashboard to Vercel.
+   with `migrate.yml` workflow (migrations auto-apply on push to `main` via Actions);
+   migration `0001` (tables, RLS, `is_owner()`, Storage bucket); deploy empty dashboard to Vercel.
 2. **Auth + read UI** — owner-only Supabase Auth; `videos` list + inline player reading
    from Supabase (seed a row manually to test).
 3. **Generation pipeline** — `scripts/generate.ts` + `generate.yml`; verify a real mp4
