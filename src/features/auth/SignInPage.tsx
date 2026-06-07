@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 import { signIn } from "./api";
 
 export function SignInPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +16,7 @@ export function SignInPage() {
     setLoading(true);
     try {
       await signIn(email, password);
+      void navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign in.");
     } finally {
