@@ -88,6 +88,11 @@ dispatch token — no YouTube/Supabase secrets.
 
 Lower-case SQL, RLS keyed to `auth.uid()`, per-status indexes.
 
+**Migration deployment:** the repo is linked to the Supabase project via the Supabase
+GitHub app integration. Any migration added to `supabase/migrations/` is applied
+automatically when the commit lands on `main` — no manual `supabase db push` is needed.
+`supabase/.temp/` (local CLI state) is gitignored and never committed.
+
 - **`topics`** — predefined seed areas / recently-used topics to bias Claude and avoid
   repeats. `id, area, used_count int default 0, created_at`.
 - **`videos`** — one row per generated video.
@@ -204,9 +209,9 @@ Music Archive) with `assets/music/CREDITS.md`. Store the chosen track's attribut
   Vercel route holds only a repo-scoped dispatch PAT; the browser holds only the anon key.
 
 ## 11. Build order
-1. **Scaffold + deploy skeleton** — Vite app from house conventions; Supabase project +
-   migration `0001` (tables, RLS, `is_owner()`, Storage bucket); deploy empty dashboard
-   to Vercel.
+1. **Scaffold + deploy skeleton** — Vite app from house conventions; Supabase project
+   linked via GitHub integration (migrations auto-apply on push to `main`); migration
+   `0001` (tables, RLS, `is_owner()`, Storage bucket); deploy empty dashboard to Vercel.
 2. **Auth + read UI** — owner-only Supabase Auth; `videos` list + inline player reading
    from Supabase (seed a row manually to test).
 3. **Generation pipeline** — `scripts/generate.ts` + `generate.yml`; verify a real mp4
