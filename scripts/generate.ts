@@ -16,7 +16,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution, MUSIC_DIR } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
-import { fetchBackground } from "./lib/backgroundImage.ts";
+import { fetchBestBackground, CANDIDATE_COUNT } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 
 const FRAME_PATH = "frame.png";
@@ -63,17 +63,27 @@ export async function generate(): Promise<string> {
     });
     await appendLog(id, "spec", "info", `topic="${spec.topic}"`);
 
-    // 2. Background image (gradient fallback never blocks the pipeline).
-    const { buffer: bg, usedFallback } = await fetchBackground(
-      spec.image_prompt,
-    );
+    // 2. Background image: fetch 3 distinct candidates, let the judge pick the
+    //    best match. Gradient fallback never blocks the pipeline.
+    const {
+      buffer: bg,
+      usedFallback,
+      chosenIndex,
+      reasons,
+    } = await fetchBestBackground({
+      image_prompt: spec.image_prompt,
+      topic: spec.topic,
+      fact_text: spec.fact_text,
+    });
     await appendLog(
       id,
       "image",
       usedFallback ? "warn" : "info",
       usedFallback
-        ? "pollinations fetch failed; using gradient fallback"
-        : "fetched background image",
+        ? "Pexels fetch failed; using gradient fallback"
+        : `selected candidate ${chosenIndex} of ${CANDIDATE_COUNT}${
+            reasons?.length ? `: ${reasons.join("; ")}` : ""
+          }`,
     );
 
     // 3. Composite the fact text and render the mp4.
