@@ -30,7 +30,7 @@ describe("ffmpegArgs", () => {
       "-pix_fmt",
       "yuv420p",
       "-r",
-      "30",
+      "60",
       "-shortest",
       "-t",
       "30",
@@ -44,6 +44,9 @@ describe("ffmpegArgs", () => {
     const filter = kenBurnsFilter();
     expect(filter).toContain("zoompan=");
     expect(filter).toContain("s=1080x1920");
+    // Pre-upscale 4× before zoompan so its per-frame integer crop rounding
+    // stays sub-pixel in the output and the zoom doesn't stair-step/jitter.
+    expect(filter).toContain("scale=4320:7680");
     // No longer a still image, so the stillimage tune must be gone.
     expect(ffmpegArgs("frame.png", "music.mp3", "out.mp4")).not.toContain(
       "stillimage",

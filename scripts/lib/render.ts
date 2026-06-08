@@ -50,27 +50,33 @@ const defaultRunner: CommandRunner = (cmd, args) =>
     });
   });
 
-/** Output frame rate of the rendered video. */
-export const FPS = 30;
+/** Output frame rate of the rendered video. 60fps keeps the slow zoom motion
+ * smooth rather than reading as a low-fps stutter. */
+export const FPS = 60;
 /** Total clip length in seconds. */
 export const DURATION_SECONDS = 30;
+/** Factor the frame is pre-upscaled by before `zoompan`. `zoompan` rounds its
+ * crop window to whole pixels each frame, so on a lightly-upscaled still the
+ * slow zoom stair-steps (visible jitter). At 4× each 1px rounding step is only
+ * ~0.25px of output motion, so the zoom glides smoothly. */
+export const UPSCALE = 4;
 /** Maximum zoom the Ken Burns effect reaches by the end of the clip — enough to
  * read as clear motion rather than a near-static frame. */
 export const ZOOM_MAX = 1.25;
 /** Per-frame zoom increment; tuned so the zoom eases to ZOOM_MAX over the clip
- * (1 + 900*0.0003 = 1.27, clamped to ZOOM_MAX). */
-export const ZOOM_RATE = 0.0003;
+ * (1 + 1800*0.00015 = 1.27, clamped to ZOOM_MAX, at 60fps × 30s = 1800 frames). */
+export const ZOOM_RATE = 0.00015;
 
 /**
  * Build the FFmpeg `-vf` filter: a slow centered Ken Burns zoom over the frame
- * so the video is never static. The frame is pre-upscaled 2× to reduce the
- * `zoompan` jitter that shows up when zooming a single still, then `zoompan`
+ * so the video is never static. The frame is pre-upscaled `UPSCALE`× to reduce
+ * the `zoompan` jitter that shows up when zooming a single still, then `zoompan`
  * eases in toward `ZOOM_MAX` and renders back down to the portrait frame size.
  */
 export function kenBurnsFilter(): string {
   const totalFrames = FPS * DURATION_SECONDS;
   return [
-    `scale=${WIDTH * 2}:${HEIGHT * 2}`,
+    `scale=${WIDTH * UPSCALE}:${HEIGHT * UPSCALE}`,
     `zoompan=z='min(zoom+${ZOOM_RATE},${ZOOM_MAX})':d=${totalFrames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${WIDTH}x${HEIGHT}:fps=${FPS}`,
     "format=yuv420p",
   ].join(",");
