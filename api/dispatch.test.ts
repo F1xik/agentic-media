@@ -98,6 +98,16 @@ describe("dispatch handler", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("rejects when the is_owner check errors", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "rpc failed" } });
+    const r = await call({
+      headers: OWNER_HEADERS,
+      body: { event: "generate" },
+    });
+    expect(r.code).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown events", async () => {
     const r = await call({ headers: OWNER_HEADERS, body: { event: "nope" } });
     expect(r.code).toBe(400);
