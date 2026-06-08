@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getVideos, getSignedVideoUrl, approveVideo, rejectVideo } from "./api";
+import {
+  getVideos,
+  getSignedVideoUrl,
+  approveVideo,
+  rejectVideo,
+  triggerGenerate,
+  triggerPublish,
+} from "./api";
 
 const { mockFrom, mockStorageFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
@@ -123,5 +130,80 @@ describe("rejectVideo", () => {
     mockFrom.mockReturnValue({ update: () => ({ eq: mockEq }) });
 
     await expect(rejectVideo("vid-2")).rejects.toThrow("update error");
+  });
+});
+
+describe("triggerGenerate", () => {
+  it("posts a generate event with the bearer token", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await triggerGenerate("tok-123");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/dispatch",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer tok-123",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({ event: "generate" }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("throws the route error message on failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({ error: "Not authorized" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(triggerGenerate("tok-123")).rejects.toThrow("Not authorized");
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("triggerPublish", () => {
+  it("posts a publish event with the video id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await triggerPublish("tok-123", "vid-9");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/dispatch",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer tok-123" }),
+        body: JSON.stringify({ event: "publish", video_id: "vid-9" }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to a status message when no error body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: () => Promise.reject(new Error("no body")),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(triggerPublish("tok-123", "vid-9")).rejects.toThrow(
+      "Dispatch failed (502)",
+    );
+
+    vi.unstubAllGlobals();
   });
 });

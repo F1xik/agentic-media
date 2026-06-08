@@ -64,3 +64,36 @@ export async function rejectVideo(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+// ── dispatch relay ──────────────────────────────────────────────────────────
+// POST to the Vercel dispatch route (api/dispatch.ts), which validates the
+// caller's Supabase access token and fires the matching GitHub
+// `repository_dispatch` event. The token is passed through as a Bearer header.
+async function postDispatch(
+  token: string,
+  body: { event: "generate" | "publish"; video_id?: string },
+): Promise<void> {
+  const res = await fetch("/api/dispatch", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(detail.error ?? `Dispatch failed (${res.status})`);
+  }
+}
+
+export async function triggerGenerate(token: string): Promise<void> {
+  await postDispatch(token, { event: "generate" });
+}
+
+export async function triggerPublish(
+  token: string,
+  videoId: string,
+): Promise<void> {
+  await postDispatch(token, { event: "publish", video_id: videoId });
+}
