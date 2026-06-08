@@ -5,12 +5,14 @@ import {
   parseVerdict,
   evaluateSpec,
   EVALUATION_MODEL,
+  EVALUATION_EFFORT,
 } from "./specEvaluator.ts";
 import { MAX_FACT_LENGTH, GENERATION_MODEL } from "./generationSpec.ts";
 
 describe("model selection", () => {
-  it("evaluates with Haiku and generates with Sonnet 4.6", () => {
-    expect(EVALUATION_MODEL).toBe("haiku");
+  it("evaluates and generates with Sonnet 4.6 at medium effort", () => {
+    expect(EVALUATION_MODEL).toBe("claude-sonnet-4-6");
+    expect(EVALUATION_EFFORT).toBe("medium");
     expect(GENERATION_MODEL).toBe("claude-sonnet-4-6");
   });
 });
@@ -113,7 +115,9 @@ describe("evaluateSpec", () => {
       "-p",
       expect.stringContaining("Octopuses have three hearts"),
       "--model",
-      "haiku",
+      "claude-sonnet-4-6",
+      "--effort",
+      "medium",
       "--output-format",
       "json",
     ]);

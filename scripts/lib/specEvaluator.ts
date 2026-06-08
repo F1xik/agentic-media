@@ -12,8 +12,11 @@ import {
   extractJsonObject,
 } from "./generationSpec.ts";
 
-/** Evaluation is a cheaper checking task; use the faster, cheaper Haiku model. */
-export const EVALUATION_MODEL = "haiku";
+/** Evaluation is a fact-checking task; use Sonnet 4.6 for stronger judgement. */
+export const EVALUATION_MODEL = "claude-sonnet-4-6";
+
+/** Reasoning effort for the evaluator. Sonnet 4.6 accepts low|medium|high. */
+export const EVALUATION_EFFORT = "medium";
 
 /** The evaluator's structured judgement: approve, plus any blocking issues. */
 export type Verdict = { approved: boolean; issues: string[] };
@@ -77,6 +80,8 @@ export async function evaluateSpec({
     prompt,
     "--model",
     EVALUATION_MODEL,
+    "--effort",
+    EVALUATION_EFFORT,
     "--output-format",
     "json",
   ]);
