@@ -1,5 +1,6 @@
 import { type Video } from "./api";
 import { useSignedVideoUrl } from "./useVideos";
+import { useApproveVideo, useRejectVideo } from "./useApproveVideo";
 
 interface Props {
   video: Video;
@@ -9,6 +10,10 @@ export function VideoCard({ video }: Props) {
   const { data: signedUrl, isLoading: urlLoading } = useSignedVideoUrl(
     video.video_path,
   );
+  const approve = useApproveVideo();
+  const reject = useRejectVideo();
+  const isPending = approve.isPending || reject.isPending;
+  const mutationError = approve.error ?? reject.error;
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -56,6 +61,35 @@ export function VideoCard({ video }: Props) {
             {video.error}
           </p>
         )}
+
+        {video.status === "pending_review" && (
+          <div className="space-y-2 pt-1">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => approve.mutate(video.id)}
+                className="flex-1 rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => reject.mutate(video.id)}
+                className="flex-1 rounded bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+            {mutationError && (
+              <p className="rounded bg-red-50 px-2 py-1 text-xs text-red-600">
+                {mutationError.message}
+              </p>
+            )}
+          </div>
+        )}
+
         <p className="text-xs text-slate-300">
           {new Date(video.created_at).toLocaleString()}
         </p>
