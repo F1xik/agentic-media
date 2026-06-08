@@ -108,7 +108,7 @@ VITE_SUPABASE_ANON_KEY=
 
 GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
 
-Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only).
+Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only), `GITHUB_REPOSITORY` (`owner/repo` the dispatch route targets), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` (or the `VITE_`-prefixed equivalents) so `api/dispatch.ts` can validate the caller's session. The route fires `repository_dispatch` events `generate_video` and `publish_video` (the latter with a `video_id` client payload).
 
 ## Key constraints
 
