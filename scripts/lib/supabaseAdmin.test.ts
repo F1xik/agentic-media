@@ -24,6 +24,8 @@ import {
   updateVideo,
   appendLog,
   uploadVideo,
+  downloadVideo,
+  getVideo,
   recentTopics,
   bumpTopic,
 } from "./supabaseAdmin.ts";
@@ -61,6 +63,41 @@ describe("insertVideo", () => {
     });
 
     await expect(insertVideo({})).rejects.toThrow("db error");
+  });
+});
+
+describe("getVideo", () => {
+  it("selects the publish fields for a single id", async () => {
+    const mockSingle = vi.fn().mockResolvedValue({
+      data: { id: "video-uuid", status: "approved", youtube_id: null },
+      error: null,
+    });
+    const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+    mockFrom.mockReturnValue({ select: mockSelect });
+
+    const row = await getVideo("video-uuid");
+    expect(mockFrom).toHaveBeenCalledWith("videos");
+    expect(mockEq).toHaveBeenCalledWith("id", "video-uuid");
+    expect(row).toEqual({
+      id: "video-uuid",
+      status: "approved",
+      youtube_id: null,
+    });
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: null, error: new Error("get error") }),
+        }),
+      }),
+    });
+
+    await expect(getVideo("video-uuid")).rejects.toThrow("get error");
   });
 });
 
@@ -216,5 +253,33 @@ describe("uploadVideo", () => {
     await expect(
       uploadVideo("video-uuid", Buffer.from("data")),
     ).rejects.toThrow("upload error");
+  });
+});
+
+describe("downloadVideo", () => {
+  it("downloads the object and returns a Buffer", async () => {
+    const blob = {
+      arrayBuffer: vi.fn().mockResolvedValue(Uint8Array.from([1, 2, 3]).buffer),
+    };
+    const mockDownload = vi.fn().mockResolvedValue({ data: blob, error: null });
+    mockStorageFrom.mockReturnValue({ download: mockDownload });
+
+    const buf = await downloadVideo("video-uuid.mp4");
+
+    expect(mockStorageFrom).toHaveBeenCalledWith("videos");
+    expect(mockDownload).toHaveBeenCalledWith("video-uuid.mp4");
+    expect(buf).toEqual(Buffer.from([1, 2, 3]));
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockStorageFrom.mockReturnValue({
+      download: vi
+        .fn()
+        .mockResolvedValue({ data: null, error: new Error("download error") }),
+    });
+
+    await expect(downloadVideo("video-uuid.mp4")).rejects.toThrow(
+      "download error",
+    );
   });
 });

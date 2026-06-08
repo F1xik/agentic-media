@@ -36,6 +36,17 @@ type VideoUpdate = Partial<{
   error: string;
 }>;
 
+/** The subset of a `videos` row the publish pipeline reads. */
+export type VideoRow = {
+  id: string;
+  status: string;
+  youtube_id: string | null;
+  video_path: string | null;
+  fact_text: string | null;
+  topic: string | null;
+  music_attribution: string | null;
+};
+
 export async function insertVideo(data: VideoInsert): Promise<{ id: string }> {
   const { data: row, error } = await adminClient
     .from("videos")
@@ -52,6 +63,19 @@ export async function updateVideo(
 ): Promise<void> {
   const { error } = await adminClient.from("videos").update(data).eq("id", id);
   if (error) throw error;
+}
+
+/** Read the fields the publish pipeline needs for a single video by id. */
+export async function getVideo(id: string): Promise<VideoRow> {
+  const { data, error } = await adminClient
+    .from("videos")
+    .select(
+      "id, status, youtube_id, video_path, fact_text, topic, music_attribution",
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data as VideoRow;
 }
 
 // ── topics ────────────────────────────────────────────────────────────────────
@@ -118,4 +142,14 @@ export async function uploadVideo(
     .upload(path, buffer, { contentType, upsert: true });
   if (error) throw error;
   return path;
+}
+
+/** Download a video object from Storage by its path, as a Buffer. */
+export async function downloadVideo(path: string): Promise<Buffer> {
+  const { data, error } = await adminClient.storage
+    .from("videos")
+    .download(path);
+  if (error) throw error;
+  if (!data) throw new Error(`no data for storage object "${path}"`);
+  return Buffer.from(await data.arrayBuffer());
 }
