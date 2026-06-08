@@ -5,12 +5,14 @@ import {
   parseGenerationSpec,
   requestGenerationSpec,
   MAX_FACT_LENGTH,
+  MAX_HOOK_LENGTH,
 } from "./generationSpec.ts";
 
 const MUSIC = ["carefree", "inspired", "wholesome"];
 
 const validSpec = {
   topic: "Marine biology",
+  hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts and blue blood.",
   image_prompt: "A deep blue ocean with an octopus",
   music: "carefree",
@@ -36,6 +38,8 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("No hashtags");
     expect(prompt).toContain("no text in the image");
     expect(prompt).toContain("surprising, verifiable, well-known");
+    expect(prompt).toContain("curiosity-gap");
+    expect(prompt).toContain(String(MAX_HOOK_LENGTH));
   });
 
   it("appends evaluator feedback when provided", () => {
@@ -78,6 +82,19 @@ describe("parseGenerationSpec", () => {
   it("rejects a fact longer than the max length", () => {
     const raw = JSON.stringify({ ...validSpec, fact_text: "x".repeat(161) });
     expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/max 160/);
+  });
+
+  it("rejects a hook longer than the max length", () => {
+    const raw = JSON.stringify({
+      ...validSpec,
+      hook: "x".repeat(MAX_HOOK_LENGTH + 1),
+    });
+    expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/hook/);
+  });
+
+  it("rejects a missing hook", () => {
+    const raw = JSON.stringify({ ...validSpec, hook: "" });
+    expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/hook/);
   });
 
   it("rejects an unknown music id", () => {

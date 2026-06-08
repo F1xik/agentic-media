@@ -16,6 +16,7 @@ const MUSIC = ["carefree", "inspired", "wholesome"];
 
 const goodSpec = {
   topic: "Marine biology",
+  hook: "How many hearts does an octopus actually have?",
   fact_text: "Octopuses have three hearts and blue blood.",
   image_prompt: "A deep blue ocean scene with an octopus drifting past coral",
   music: "carefree",

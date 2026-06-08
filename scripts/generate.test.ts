@@ -46,6 +46,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const spec = {
   topic: "Marine biology",
+  hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts.",
   image_prompt: "an octopus",
   music: "carefree",

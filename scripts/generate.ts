@@ -77,7 +77,7 @@ export async function generate(): Promise<string> {
     );
 
     // 3. Composite the fact text and render the mp4.
-    const frame = await compositeFrame(bg, spec.fact_text);
+    const frame = await compositeFrame(bg, spec.hook, spec.fact_text);
     await writeFile(FRAME_PATH, frame);
     const musicPath = join(MUSIC_DIR, `${spec.music}.mp3`);
     await renderVideo({

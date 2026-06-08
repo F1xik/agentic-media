@@ -31,7 +31,7 @@ export function buildGraderPrompt(spec: GenerationSpec): string {
     "You are a meticulous fact-checker and short-form content critic.",
     "Grade the generated YouTube Shorts item below on each axis. Be strict and do not give the benefit of the doubt.",
     "- accuracy (1-5): is fact_text objectively TRUE and verifiable? 5 = unambiguously true, 1 = false or hallucinated.",
-    "- engagement (1-5): is the fact genuinely surprising and hook-worthy? 5 = stops the scroll, 1 = bland or universally known.",
+    "- engagement (1-5): is the fact genuinely surprising and hook-worthy, AND does hook open a real curiosity gap that sets up fact_text as the payoff? 5 = stops the scroll with a strong teaser, 1 = bland fact or a hook that is missing, weak, or just restates the answer.",
     "- imagePromptClean (boolean): true ONLY if image_prompt describes a visual scene with no request for embedded/overlaid text, words, letters, or captions.",
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     'Schema: {"accuracy": number, "engagement": number, "imagePromptClean": boolean, "notes": string}',

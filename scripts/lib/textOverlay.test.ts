@@ -56,4 +56,21 @@ describe("buildOverlaySvg", () => {
     const svg = buildOverlaySvg({ lines: ["A & B < C"] });
     expect(svg).toContain("A &amp; B &lt; C");
   });
+
+  it("renders only the fact block (one band) when no hook is given", () => {
+    const svg = buildOverlaySvg({ lines: ["Octopuses have", "three hearts"] });
+    expect(svg.match(/<rect /g)?.length).toBe(1);
+  });
+
+  it("renders the hook above the fact, each with its own band", () => {
+    const hookLines = ["Why do octopuses", "never faint?"];
+    const lines = ["Octopuses have", "three hearts"];
+    const svg = buildOverlaySvg({ hookLines, lines });
+
+    for (const line of [...hookLines, ...lines]) expect(svg).toContain(line);
+    // Two contrast bands: one for the hook, one for the fact.
+    expect(svg.match(/<rect /g)?.length).toBe(2);
+    // A <text> element per hook line plus per fact line.
+    expect(svg.match(/<text /g)?.length).toBe(hookLines.length + lines.length);
+  });
 });
