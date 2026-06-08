@@ -19,6 +19,7 @@ const MUSIC = ["carefree", "inspired", "wholesome"];
 
 const spec = {
   topic: "Marine biology",
+  hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts and blue blood.",
   image_prompt: "A deep blue ocean with an octopus",
   music: "carefree",
@@ -32,6 +33,7 @@ describe("buildEvaluatorPrompt", () => {
     expect(prompt).toContain("Engagement");
     expect(prompt).toContain(String(MAX_FACT_LENGTH));
     expect(prompt).toContain("carefree, inspired, wholesome");
+    expect(prompt).toContain("curiosity gap");
   });
 
   it("embeds the spec fields to evaluate", () => {

@@ -41,27 +41,44 @@ export function wrapText(text: string, maxCharsPerLine: number): string[] {
 
 export type OverlayOptions = {
   lines: string[];
+  /** Optional hook lines, rendered larger near the top of the frame. */
+  hookLines?: string[];
   width?: number;
   height?: number;
   fontSize?: number;
   lineHeight?: number;
+  hookFontSize?: number;
+  hookLineHeight?: number;
+};
+
+type BlockOptions = {
+  lines: string[];
+  width: number;
+  /** Top of the text block (the band is padded around it). */
+  blockTop: number;
+  fontSize: number;
+  lineHeight: number;
+  height: number;
+  /** Text fill colour (the hook uses an accent to draw the eye first). */
+  fill?: string;
 };
 
 /**
- * Build a full-frame SVG with a semi-transparent contrast band behind the
- * vertically-centered, wrapped fact text. Returned as a UTF-8 SVG string for
- * sharp to composite over the background.
+ * Render one block: a semi-transparent contrast band plus the wrapped, outlined
+ * lines anchored over it. Returns the SVG fragment (band + text elements).
  */
-export function buildOverlaySvg({
+function renderBlock({
   lines,
-  width = WIDTH,
-  height = HEIGHT,
-  fontSize = 64,
-  lineHeight = 84,
-}: OverlayOptions): string {
+  width,
+  blockTop,
+  fontSize,
+  lineHeight,
+  height,
+  fill = "#ffffff",
+}: BlockOptions): string {
+  if (lines.length === 0) return "";
+
   const blockHeight = lines.length * lineHeight;
-  // Vertically center the text block, then place the band a little around it.
-  const blockTop = Math.round((height - blockHeight) / 2);
   const bandPadding = 48;
   const bandY = Math.max(0, blockTop - bandPadding);
   const bandHeight = Math.min(height - bandY, blockHeight + bandPadding * 2);
@@ -71,14 +88,56 @@ export function buildOverlaySvg({
   const tspans = lines
     .map((line, i) => {
       const y = firstBaseline + i * lineHeight;
-      return `<text x="${width / 2}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="#ffffff" stroke="#000000" stroke-width="2" paint-order="stroke">${escapeXml(
+      return `<text x="${width / 2}" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="${fill}" stroke="#000000" stroke-width="2" paint-order="stroke">${escapeXml(
         line,
       )}</text>`;
     })
     .join("");
 
+  return `<rect x="0" y="${bandY}" width="${width}" height="${bandHeight}" fill="#000000" fill-opacity="0.5"/>
+  ${tspans}`;
+}
+
+/**
+ * Build a full-frame SVG that composites the fact text (vertically centered)
+ * and, when provided, a larger accent-coloured hook near the top — each behind
+ * its own semi-transparent contrast band. Returned as a UTF-8 SVG string for
+ * sharp to composite over the background.
+ */
+export function buildOverlaySvg({
+  lines,
+  hookLines = [],
+  width = WIDTH,
+  height = HEIGHT,
+  fontSize = 64,
+  lineHeight = 84,
+  hookFontSize = 76,
+  hookLineHeight = 96,
+}: OverlayOptions): string {
+  // Fact block: vertically centered.
+  const factTop = Math.round((height - lines.length * lineHeight) / 2);
+  const fact = renderBlock({
+    lines,
+    width,
+    blockTop: factTop,
+    fontSize,
+    lineHeight,
+    height,
+  });
+
+  // Hook block: anchored in the upper portion of the frame, in an accent colour.
+  const hook = renderBlock({
+    lines: hookLines,
+    width,
+    blockTop: Math.round(height * 0.14),
+    fontSize: hookFontSize,
+    lineHeight: hookLineHeight,
+    height,
+    fill: "#ffe14d",
+  });
+
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="${bandY}" width="${width}" height="${bandHeight}" fill="#000000" fill-opacity="0.5"/>
-  ${tspans}
+  ${hook}
+  ${fact}
 </svg>`;
 }

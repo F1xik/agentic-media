@@ -9,6 +9,7 @@ import {
 
 const spec = {
   topic: "Marine biology",
+  hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts and blue blood.",
   image_prompt: "A deep blue ocean with an octopus",
   music: "carefree",
@@ -27,6 +28,7 @@ describe("buildGraderPrompt", () => {
     expect(prompt).toContain("engagement (1-5)");
     expect(prompt).toContain("imagePromptClean (boolean)");
     expect(prompt).toContain("Octopuses have three hearts");
+    expect(prompt).toContain("curiosity gap");
   });
 
   it("asks for a JSON-only grade", () => {

@@ -6,6 +6,9 @@ import { spawn } from "node:child_process";
 
 export const MAX_FACT_LENGTH = 160;
 
+/** Hooks are shown big at the top of the frame, so keep them short and punchy. */
+export const MAX_HOOK_LENGTH = 70;
+
 /** Generation is the harder creative task; use Sonnet 4.6. */
 export const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -14,6 +17,8 @@ export const GENERATION_EFFORT = "medium";
 
 export type GenerationSpec = {
   topic: string;
+  /** A short curiosity-gap teaser shown at the top of the frame to stop the scroll. */
+  hook: string;
   fact_text: string;
   image_prompt: string;
   /** Music track id (filename without `.mp3`); must be a committed track. */
@@ -42,8 +47,9 @@ export function buildPrompt(
     "You are scripting a faceless YouTube Shorts channel of surprising, true fun facts.",
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     "Schema:",
-    '{"topic": string, "fact_text": string, "image_prompt": string, "music": string}',
+    '{"topic": string, "hook": string, "fact_text": string, "image_prompt": string, "music": string}',
     `- topic: a short subject area (2-4 words). ${avoid}`,
+    `- hook: a short curiosity-gap teaser or question (at most ${MAX_HOOK_LENGTH} characters, no hashtags) that makes the viewer want the answer. It must set up fact_text as the payoff and must NOT simply restate the fact or give the answer away.`,
     `- fact_text: ONE surprising, verifiable, well-known fact, at most ${MAX_FACT_LENGTH} characters. No hashtags.`,
     "- image_prompt: a vivid description for a vertical background image (no text in the image).",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
@@ -118,10 +124,16 @@ export function parseGenerationSpec(
   };
 
   const topic = str("topic");
+  const hook = str("hook");
   const fact_text = str("fact_text");
   const image_prompt = str("image_prompt");
   const music = str("music").replace(/\.mp3$/i, "");
 
+  if (hook.length > MAX_HOOK_LENGTH) {
+    throw new Error(
+      `generation spec: hook is ${hook.length} chars (max ${MAX_HOOK_LENGTH})`,
+    );
+  }
   if (fact_text.length > MAX_FACT_LENGTH) {
     throw new Error(
       `generation spec: fact_text is ${fact_text.length} chars (max ${MAX_FACT_LENGTH})`,
@@ -133,7 +145,7 @@ export function parseGenerationSpec(
     );
   }
 
-  return { topic, fact_text, image_prompt, music };
+  return { topic, hook, fact_text, image_prompt, music };
 }
 
 export type RequestOptions = {
