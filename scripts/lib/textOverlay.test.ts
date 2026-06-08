@@ -73,4 +73,34 @@ describe("buildOverlaySvg", () => {
     // A <text> element per hook line plus per fact line.
     expect(svg.match(/<text /g)?.length).toBe(hookLines.length + lines.length);
   });
+
+  it("keeps the fact band clear of the hook band for a long hook + long fact", () => {
+    // A 4-line hook and an 8-line fact: centering the fact would otherwise pull
+    // its band up over the last hook line and mute it.
+    const hookLines = [
+      "What tiny creature",
+      "can survive in the",
+      "vacuum of outer",
+      "space?",
+    ];
+    const lines = [
+      "Tardigrades can",
+      "survive in open space,",
+      "enduring radiation,",
+      "vacuum, and extreme",
+      "temperatures by",
+      "entering a dried,",
+      "near-dead state called",
+      "cryptobiosis.",
+    ];
+    const svg = buildOverlaySvg({ hookLines, lines });
+
+    // The hook band is rendered first, the fact band second.
+    const rects = [...svg.matchAll(/<rect [^>]*y="(\d+)"[^>]*height="(\d+)"/g)];
+    expect(rects.length).toBe(2);
+    const [hookY, hookH] = [Number(rects[0][1]), Number(rects[0][2])];
+    const factY = Number(rects[1][1]);
+    // The fact band starts at or below the bottom of the hook band — no overlap.
+    expect(factY).toBeGreaterThanOrEqual(hookY + hookH);
+  });
 });

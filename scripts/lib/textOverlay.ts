@@ -63,6 +63,29 @@ type BlockOptions = {
   fill?: string;
 };
 
+/** Padding around a text block, both inside its contrast band and as layout gap. */
+const BAND_PADDING = 48;
+
+/** Minimum vertical gap between the hook band and the fact band below it. */
+const BLOCK_GAP = 24;
+
+/**
+ * Geometry of the contrast band drawn behind a text block: where it starts and
+ * how tall it is. Shared by `renderBlock` (to draw the band) and the layout in
+ * `buildOverlaySvg` (to keep blocks from overlapping).
+ */
+function bandGeometry(
+  blockTop: number,
+  lineCount: number,
+  lineHeight: number,
+  height: number,
+): { bandY: number; bandHeight: number } {
+  const blockHeight = lineCount * lineHeight;
+  const bandY = Math.max(0, blockTop - BAND_PADDING);
+  const bandHeight = Math.min(height - bandY, blockHeight + BAND_PADDING * 2);
+  return { bandY, bandHeight };
+}
+
 /**
  * Render one block: a semi-transparent contrast band plus the wrapped, outlined
  * lines anchored over it. Returns the SVG fragment (band + text elements).
@@ -78,10 +101,12 @@ function renderBlock({
 }: BlockOptions): string {
   if (lines.length === 0) return "";
 
-  const blockHeight = lines.length * lineHeight;
-  const bandPadding = 48;
-  const bandY = Math.max(0, blockTop - bandPadding);
-  const bandHeight = Math.min(height - bandY, blockHeight + bandPadding * 2);
+  const { bandY, bandHeight } = bandGeometry(
+    blockTop,
+    lines.length,
+    lineHeight,
+    height,
+  );
   // Baseline of the first line (text anchored at its baseline in SVG).
   const firstBaseline = blockTop + fontSize;
 
@@ -114,8 +139,33 @@ export function buildOverlaySvg({
   hookFontSize = 76,
   hookLineHeight = 96,
 }: OverlayOptions): string {
-  // Fact block: vertically centered.
-  const factTop = Math.round((height - lines.length * lineHeight) / 2);
+  // Hook block: anchored in the upper portion of the frame, in an accent colour.
+  const hookTop = Math.round(height * 0.14);
+  const hook = renderBlock({
+    lines: hookLines,
+    width,
+    blockTop: hookTop,
+    fontSize: hookFontSize,
+    lineHeight: hookLineHeight,
+    height,
+    fill: "#ffe14d",
+  });
+
+  // Fact block: vertically centered, but never overlapping the hook band — a
+  // long hook + long fact would otherwise let the fact's contrast band paint
+  // over (and mute) the last hook line. Clamp the fact below the hook band.
+  const centeredTop = Math.round((height - lines.length * lineHeight) / 2);
+  let factTop = centeredTop;
+  if (hookLines.length > 0) {
+    const { bandY, bandHeight } = bandGeometry(
+      hookTop,
+      hookLines.length,
+      hookLineHeight,
+      height,
+    );
+    const minFactTop = bandY + bandHeight + BAND_PADDING + BLOCK_GAP;
+    factTop = Math.max(centeredTop, minFactTop);
+  }
   const fact = renderBlock({
     lines,
     width,
@@ -123,17 +173,6 @@ export function buildOverlaySvg({
     fontSize,
     lineHeight,
     height,
-  });
-
-  // Hook block: anchored in the upper portion of the frame, in an accent colour.
-  const hook = renderBlock({
-    lines: hookLines,
-    width,
-    blockTop: Math.round(height * 0.14),
-    fontSize: hookFontSize,
-    lineHeight: hookLineHeight,
-    height,
-    fill: "#ffe14d",
   });
 
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">

@@ -54,10 +54,12 @@ const defaultRunner: CommandRunner = (cmd, args) =>
 export const FPS = 30;
 /** Total clip length in seconds. */
 export const DURATION_SECONDS = 30;
-/** Maximum zoom the Ken Burns effect reaches by the end of the clip. */
-export const ZOOM_MAX = 1.1;
-/** Per-frame zoom increment; tuned so the zoom approaches ZOOM_MAX over the clip. */
-export const ZOOM_RATE = 0.0001;
+/** Maximum zoom the Ken Burns effect reaches by the end of the clip — enough to
+ * read as clear motion rather than a near-static frame. */
+export const ZOOM_MAX = 1.25;
+/** Per-frame zoom increment; tuned so the zoom eases to ZOOM_MAX over the clip
+ * (1 + 900*0.0003 = 1.27, clamped to ZOOM_MAX). */
+export const ZOOM_RATE = 0.0003;
 
 /**
  * Build the FFmpeg `-vf` filter: a slow centered Ken Burns zoom over the frame

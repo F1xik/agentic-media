@@ -5,6 +5,8 @@ import {
   ffmpegArgs,
   kenBurnsFilter,
   renderVideo,
+  ZOOM_MAX,
+  ZOOM_RATE,
 } from "./render.ts";
 import { gradientFallback } from "./backgroundImage.ts";
 
@@ -46,6 +48,12 @@ describe("ffmpegArgs", () => {
     expect(ffmpegArgs("frame.png", "music.mp3", "out.mp4")).not.toContain(
       "stillimage",
     );
+  });
+
+  it("zooms strongly enough to read as motion", () => {
+    // A near-static 1.1x zoom looked broken; the effect must be clearly visible.
+    expect(ZOOM_MAX).toBeGreaterThanOrEqual(1.2);
+    expect(kenBurnsFilter()).toContain(`min(zoom+${ZOOM_RATE},${ZOOM_MAX})`);
   });
 });
 
