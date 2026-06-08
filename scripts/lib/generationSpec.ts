@@ -51,7 +51,7 @@ export function buildPrompt(
     `- topic: a short subject area (2-4 words). ${avoid}`,
     `- hook: a short curiosity-gap teaser or question (at most ${MAX_HOOK_LENGTH} characters, no hashtags) that makes the viewer want the answer. It must set up fact_text as the payoff and must NOT simply restate the fact or give the answer away.`,
     `- fact_text: ONE surprising, verifiable, well-known fact, at most ${MAX_FACT_LENGTH} characters. No hashtags.`,
-    "- image_prompt: a vivid description for a vertical background image (no text in the image).",
+    "- image_prompt: a vivid description for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes.",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
   ];
 
