@@ -26,8 +26,9 @@ Migrations in `supabase/migrations/` are applied automatically by
 - [x] Add an `updated_at` trigger for `videos`.
 - [ ] Add `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` secrets to the repo
       (Settings → Secrets → Actions) so `migrate.yml` can run.
-- [ ] Set `app.owner_id` on the database once the owner auth user is created
-      (see comment at top of the migration file).
+- [ ] Record the owner in `public.app_config` once the owner auth user is created
+      (see migration `0003_owner_config.sql`; the original `app.owner_id` GUC
+      approach fails on hosted Supabase with a permission-denied error).
 
 ## Done when
 - Tables exist in the Supabase dashboard (applied automatically by `migrate.yml`).
