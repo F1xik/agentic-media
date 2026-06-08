@@ -4,6 +4,7 @@ import {
   gradientFallback,
   fetchBackground,
   fetchBestBackground,
+  CANDIDATE_COUNT,
 } from "./backgroundImage.ts";
 
 const FAKE_KEY = "test-key";
@@ -143,8 +144,13 @@ describe("fetchBackground", () => {
 });
 
 describe("fetchBestBackground", () => {
+  it("defaults to fetching five candidates", () => {
+    expect(CANDIDATE_COUNT).toBe(5);
+  });
+
   it("fetches distinct candidates and returns the judge's pick", async () => {
-    // Search returns a duplicate id (1) which must be de-duplicated.
+    // Search returns a duplicate id (1) which must be de-duplicated; only four
+    // distinct ids remain, fewer than the default CANDIDATE_COUNT of 5.
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(pexelsSearchPhotos([1, 1, 2, 3, 4]))
@@ -163,11 +169,16 @@ describe("fetchBestBackground", () => {
     expect(result.chosenIndex).toBe(2);
     expect(result.reasons).toEqual(["best contrast"]);
     expect(result.buffer.subarray(0, 4).toString("hex")).toBe("89504e47");
-    // 1 search + 3 distinct downloads.
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
-    // The judge sees three distinct candidates (ids 1, 2, 3).
-    const candidates = evaluate.mock.calls[0][0].candidates;
-    expect(candidates.map((c: { id: number }) => c.id)).toEqual([1, 2, 3]);
+    // 1 search + 4 distinct downloads.
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    // The judge sees the four distinct candidates (ids 1, 2, 3, 4)...
+    const arg = evaluate.mock.calls[0][0];
+    expect(arg.candidates.map((c: { id: number }) => c.id)).toEqual([
+      1, 2, 3, 4,
+    ]);
+    // ...along with one image buffer per candidate.
+    expect(arg.images).toHaveLength(4);
+    expect(arg.images.every((b: unknown) => Buffer.isBuffer(b))).toBe(true);
   });
 
   it("defaults to the first candidate when the judge fails", async () => {

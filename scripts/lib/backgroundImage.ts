@@ -146,10 +146,10 @@ export async function fetchBackground(
 }
 
 /** How many distinct candidate photos to fetch and evaluate. */
-export const CANDIDATE_COUNT = 3;
+export const CANDIDATE_COUNT = 5;
 
 export type FetchBestBackgroundOptions = FetchBackgroundOptions & {
-  /** Number of distinct candidates to fetch and evaluate (default 3). */
+  /** Number of distinct candidates to fetch and evaluate (default 5). */
   candidates?: number;
   /** Injectable evaluator for tests; defaults to the live Claude judge. */
   evaluate?: typeof evaluateImageCandidates;
@@ -187,7 +187,7 @@ export async function fetchBestBackground(
   let photos: PexelsPhoto[];
   try {
     photos = await withRetry(
-      (signal) => searchPexels(ctx.image_prompt, 15, fetchImpl, apiKey, signal),
+      (signal) => searchPexels(ctx.image_prompt, 30, fetchImpl, apiKey, signal),
       retries,
       timeoutMs,
     );
@@ -242,7 +242,11 @@ export async function fetchBestBackground(
 
   let choice = { bestIndex: 0, reasons: [] as string[] };
   try {
-    choice = await evaluate({ ctx, candidates: candidateMeta });
+    choice = await evaluate({
+      ctx,
+      candidates: candidateMeta,
+      images: available.map((a) => a.buffer),
+    });
   } catch {
     // Judge failed; keep the first candidate so the pipeline never blocks.
   }

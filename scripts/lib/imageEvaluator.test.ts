@@ -1,4 +1,7 @@
 // @vitest-environment node
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
+
 import { describe, it, expect, vi } from "vitest";
 import {
   buildImageEvalPrompt,
@@ -44,23 +47,51 @@ const candidates: Candidate[] = [
   },
 ];
 
+// Minimal valid 1×1 PNG — sharp can resize this into a thumbnail.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+const images = [TINY_PNG, TINY_PNG, TINY_PNG];
+
+const paths = ["/tmp/x/0.png", "/tmp/x/1.png", "/tmp/x/2.png"];
+
+/** Pull the `-p` prompt string out of a captured `run` mock call. */
+function promptArg(run: ReturnType<typeof vi.fn>): string {
+  return run.mock.calls[0][1][1];
+}
+
+/** Pull the first candidate temp-file path out of a built prompt. */
+function firstTempPath(prompt: string): string {
+  const match = prompt.match(/0: file=(\S+\.png)/);
+  if (!match) throw new Error(`no temp path in prompt: ${prompt}`);
+  return match[1];
+}
+
 describe("buildImageEvalPrompt", () => {
   it("embeds the spec fields to match against", () => {
-    const prompt = buildImageEvalPrompt(ctx, candidates);
+    const prompt = buildImageEvalPrompt(ctx, candidates, paths);
     expect(prompt).toContain("A deep blue ocean with an octopus");
     expect(prompt).toContain("Marine biology");
     expect(prompt).toContain("Octopuses have three hearts");
   });
 
-  it("lists every candidate's alt text, 0-indexed", () => {
-    const prompt = buildImageEvalPrompt(ctx, candidates);
-    expect(prompt).toContain("0: alt=");
+  it("lists each candidate's image file path and alt hint, 0-indexed", () => {
+    const prompt = buildImageEvalPrompt(ctx, candidates, paths);
+    expect(prompt).toContain("0: file=/tmp/x/0.png");
+    expect(prompt).toContain("alt=");
     expect(prompt).toContain("a lone octopus on the dark sea floor");
     expect(prompt).toContain("a busy fish market stall");
   });
 
+  it("instructs the judge to look at the actual image files", () => {
+    const prompt = buildImageEvalPrompt(ctx, candidates, paths);
+    expect(prompt.toLowerCase()).toContain("read");
+    expect(prompt.toLowerCase()).toContain("image file");
+  });
+
   it("asks for a JSON-only choice", () => {
-    const prompt = buildImageEvalPrompt(ctx, candidates);
+    const prompt = buildImageEvalPrompt(ctx, candidates, paths);
     expect(prompt).toContain('{"bestIndex": number, "reasons": string[]}');
     expect(prompt).toContain("no prose, no code fences");
   });
@@ -119,32 +150,70 @@ describe("parseImageChoice", () => {
 });
 
 describe("evaluateImageCandidates", () => {
-  it("unwraps the --output-format json envelope and validates", async () => {
+  it("writes image temp files, allows Read, and unwraps the json envelope", async () => {
     const choice = { bestIndex: 1, reasons: ["best contrast"] };
     const run = vi
       .fn()
       .mockResolvedValue(JSON.stringify({ result: JSON.stringify(choice) }));
 
-    const result = await evaluateImageCandidates({ ctx, candidates, run });
+    const result = await evaluateImageCandidates({
+      ctx,
+      candidates,
+      images,
+      run,
+    });
 
     expect(result).toEqual(choice);
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
-      expect.stringContaining("a lone octopus on the dark sea floor"),
+      expect.stringContaining("0: file="),
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "Read",
       "--output-format",
       "json",
     ]);
+    // The prompt references one temp .png path per candidate.
+    const prompt = promptArg(run);
+    expect(prompt).toMatch(/0: file=\S+\.png/);
+    expect(prompt).toMatch(/2: file=\S+\.png/);
   });
 
   it("falls back to parsing raw output when not an envelope", async () => {
     const run = vi
       .fn()
       .mockResolvedValue(JSON.stringify({ bestIndex: 2, reasons: [] }));
-    const result = await evaluateImageCandidates({ ctx, candidates, run });
+    const result = await evaluateImageCandidates({
+      ctx,
+      candidates,
+      images,
+      run,
+    });
     expect(result).toEqual({ bestIndex: 2, reasons: [] });
+  });
+
+  it("removes the temp files after a successful judge call", async () => {
+    const run = vi
+      .fn()
+      .mockResolvedValue(JSON.stringify({ bestIndex: 0, reasons: [] }));
+
+    await evaluateImageCandidates({ ctx, candidates, images, run });
+
+    const dir = dirname(firstTempPath(promptArg(run)));
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it("removes the temp files even when the judge call rejects", async () => {
+    const run = vi.fn().mockRejectedValue(new Error("claude down"));
+
+    await expect(
+      evaluateImageCandidates({ ctx, candidates, images, run }),
+    ).rejects.toThrow("claude down");
+
+    const dir = dirname(firstTempPath(promptArg(run)));
+    expect(existsSync(dir)).toBe(false);
   });
 });
