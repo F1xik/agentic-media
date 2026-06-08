@@ -4,7 +4,10 @@ on:
   # One short generation per day; kept modest to respect Claude Pro token limits.
   schedule:
     - cron: "0 9 * * *"
-  # Manual "Generate now" trigger from the Actions tab / dashboard dispatch.
+  # Dashboard "Generate now" button → api/dispatch.ts fires this event.
+  repository_dispatch:
+    types: [generate_video]
+  # Manual "Generate now" trigger from the Actions tab.
   workflow_dispatch:
 
 # Avoid overlapping runs racing on topic selection / token usage.

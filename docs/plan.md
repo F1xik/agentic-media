@@ -113,7 +113,7 @@ short-lived **signed URL**; Actions uploads with the service-role key.
 ## 5. GitHub Actions workflows (`.github/workflows/`)
 
 ### `generate.yml` (scheduled)
-- `on: schedule: cron` (e.g. daily) + `workflow_dispatch` (manual / "Generate now").
+- `on: schedule: cron` (e.g. daily) + `repository_dispatch: types: [generate_video]` (dashboard "Generate now" via the Vercel route) + `workflow_dispatch` (manual from the Actions tab).
 - Steps:
   1. checkout, setup-node, `npm ci`.
   2. **Claude** — `anthropics/claude-code-action` (or `claude -p "…" --output-format json`)
