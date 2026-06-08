@@ -1,10 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { approveVideo, rejectVideo } from "./api";
+import { useAuth } from "../auth/useAuth";
+import { approveVideo, rejectVideo, triggerPublish } from "./api";
 
 export function useApproveVideo() {
+  const { session } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: approveVideo,
+    mutationFn: async (id: string) => {
+      await approveVideo(id);
+      if (!session) throw new Error("Not authenticated");
+      await triggerPublish(session.access_token, id);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["videos"] }),
   });
 }
