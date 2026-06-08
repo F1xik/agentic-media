@@ -15,8 +15,8 @@ const spec = {
 };
 
 describe("GRADER_MODEL", () => {
-  it("grades with the most capable model", () => {
-    expect(GRADER_MODEL).toBe("opus");
+  it("grades with the cheaper Haiku model", () => {
+    expect(GRADER_MODEL).toBe("haiku");
   });
 });
 
@@ -114,7 +114,7 @@ describe("gradeSpec", () => {
       "-p",
       expect.stringContaining("Octopuses have three hearts"),
       "--model",
-      "opus",
+      "haiku",
       "--output-format",
       "json",
     ]);

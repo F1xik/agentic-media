@@ -114,7 +114,9 @@ describe("requestGenerationSpec", () => {
       "-p",
       expect.stringContaining("space"),
       "--model",
-      "opus",
+      "claude-sonnet-4-6",
+      "--effort",
+      "medium",
       "--output-format",
       "json",
     ]);
@@ -142,7 +144,9 @@ describe("requestGenerationSpec", () => {
       "-p",
       expect.stringContaining("fact is not surprising"),
       "--model",
-      "opus",
+      "claude-sonnet-4-6",
+      "--effort",
+      "medium",
       "--output-format",
       "json",
     ]);

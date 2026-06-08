@@ -10,8 +10,8 @@ import {
   extractJsonObject,
 } from "./generationSpec.ts";
 
-/** Grading is a careful judgement task; use the most capable model. */
-export const GRADER_MODEL = "opus";
+/** Grading is a cheaper checking task; use the faster, cheaper Haiku model. */
+export const GRADER_MODEL = "haiku";
 
 /** Per-axis judgement of a generated spec. Scores are 1 (worst) to 5 (best). */
 export type Grade = {
