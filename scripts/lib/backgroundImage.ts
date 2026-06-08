@@ -3,6 +3,11 @@
 
 import sharp from "sharp";
 import { WIDTH, HEIGHT } from "./textOverlay.ts";
+import {
+  type Candidate,
+  type ImageEvalContext,
+  evaluateImageCandidates,
+} from "./imageEvaluator.ts";
 
 const PEXELS_SEARCH = "https://api.pexels.com/v1/search";
 
@@ -35,6 +40,77 @@ export type BackgroundResult = {
   usedFallback: boolean;
 };
 
+/** A Pexels photo with the fields used for selection and download. */
+type PexelsPhoto = {
+  id: number;
+  alt?: string;
+  avg_color?: string;
+  photographer?: string;
+  src: { portrait: string };
+};
+
+/**
+ * Run `fn` (passing it an abort signal) up to `retries` times, aborting each
+ * attempt after `timeoutMs` and backing off exponentially between attempts.
+ * Rethrows the last error once all retries are exhausted.
+ */
+async function withRetry<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  retries: number,
+  timeoutMs: number,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fn(controller.signal);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === retries) break;
+      await new Promise((r) => setTimeout(r, 2_000 * attempt));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastErr;
+}
+
+/** Search Pexels for portrait photos matching `prompt`. */
+async function searchPexels(
+  prompt: string,
+  perPage: number,
+  fetchImpl: typeof fetch,
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<PexelsPhoto[]> {
+  const searchUrl = `${PEXELS_SEARCH}?query=${encodeURIComponent(prompt)}&orientation=portrait&per_page=${perPage}`;
+  const searchRes = await fetchImpl(searchUrl, {
+    signal,
+    headers: { Authorization: apiKey },
+  });
+  if (!searchRes.ok)
+    throw new Error(`Pexels search responded ${searchRes.status}`);
+
+  const json = (await searchRes.json()) as { photos?: PexelsPhoto[] };
+  if (!json.photos?.length) throw new Error("Pexels returned no photos");
+  return json.photos;
+}
+
+/** Download a photo URL and resize it to the frame dimensions as a PNG. */
+async function downloadAndResize(
+  url: string,
+  fetchImpl: typeof fetch,
+  signal: AbortSignal,
+): Promise<Buffer> {
+  const imgRes = await fetchImpl(url, { signal });
+  if (!imgRes.ok)
+    throw new Error(`Pexels photo download responded ${imgRes.status}`);
+
+  const raw = Buffer.from(await imgRes.arrayBuffer());
+  return sharp(raw).resize(WIDTH, HEIGHT, { fit: "cover" }).png().toBuffer();
+}
+
 /**
  * Search Pexels for a portrait photo matching `prompt`, download it, and
  * resize to the frame dimensions. Retries up to `retries` times with
@@ -54,44 +130,127 @@ export async function fetchBackground(
     return { buffer: await gradientFallback(), usedFallback: true };
   }
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      // 1. Search Pexels for a portrait photo matching the prompt.
-      const searchUrl = `${PEXELS_SEARCH}?query=${encodeURIComponent(prompt)}&orientation=portrait&per_page=1`;
-      const searchRes = await fetchImpl(searchUrl, {
-        signal: controller.signal,
-        headers: { Authorization: apiKey },
-      });
-      if (!searchRes.ok)
-        throw new Error(`Pexels search responded ${searchRes.status}`);
+  try {
+    const buffer = await withRetry(
+      async (signal) => {
+        const photos = await searchPexels(prompt, 1, fetchImpl, apiKey, signal);
+        return downloadAndResize(photos[0].src.portrait, fetchImpl, signal);
+      },
+      retries,
+      timeoutMs,
+    );
+    return { buffer, usedFallback: false };
+  } catch {
+    return { buffer: await gradientFallback(), usedFallback: true };
+  }
+}
 
-      const json = (await searchRes.json()) as {
-        photos: { src: { portrait: string } }[];
-      };
-      if (!json.photos?.length) throw new Error("Pexels returned no photos");
+/** How many distinct candidate photos to fetch and evaluate. */
+export const CANDIDATE_COUNT = 3;
 
-      // 2. Download the portrait-cropped image and resize to frame dimensions.
-      const photoUrl = json.photos[0].src.portrait;
-      const imgRes = await fetchImpl(photoUrl, { signal: controller.signal });
-      if (!imgRes.ok)
-        throw new Error(`Pexels photo download responded ${imgRes.status}`);
+export type FetchBestBackgroundOptions = FetchBackgroundOptions & {
+  /** Number of distinct candidates to fetch and evaluate (default 3). */
+  candidates?: number;
+  /** Injectable evaluator for tests; defaults to the live Claude judge. */
+  evaluate?: typeof evaluateImageCandidates;
+};
 
-      const raw = Buffer.from(await imgRes.arrayBuffer());
-      const buffer = await sharp(raw)
-        .resize(WIDTH, HEIGHT, { fit: "cover" })
-        .png()
-        .toBuffer();
+export type BestBackgroundResult = BackgroundResult & {
+  /** Index of the chosen candidate; undefined when the gradient was used. */
+  chosenIndex?: number;
+  /** The judge's reasons for the chosen candidate. */
+  reasons?: string[];
+};
 
-      return { buffer, usedFallback: false };
-    } catch {
-      if (attempt === retries) break;
-      await new Promise((r) => setTimeout(r, 2_000 * attempt));
-    } finally {
-      clearTimeout(timer);
-    }
+/**
+ * Fetch several distinct Pexels candidates in parallel, ask the image judge
+ * which best matches the spec, and return that one. Falls back to the gradient
+ * if the key is missing or every candidate download fails; defaults to the
+ * first candidate if the judge call fails. Never blocks the pipeline.
+ */
+export async function fetchBestBackground(
+  ctx: ImageEvalContext,
+  {
+    fetchImpl = fetch,
+    timeoutMs = 30_000,
+    retries = 3,
+    apiKey = process.env.PEXELS_API_KEY,
+    candidates = CANDIDATE_COUNT,
+    evaluate = evaluateImageCandidates,
+  }: FetchBestBackgroundOptions = {},
+): Promise<BestBackgroundResult> {
+  if (!apiKey) {
+    console.warn("PEXELS_API_KEY not set; using gradient fallback");
+    return { buffer: await gradientFallback(), usedFallback: true };
   }
 
-  return { buffer: await gradientFallback(), usedFallback: true };
+  let photos: PexelsPhoto[];
+  try {
+    photos = await withRetry(
+      (signal) => searchPexels(ctx.image_prompt, 15, fetchImpl, apiKey, signal),
+      retries,
+      timeoutMs,
+    );
+  } catch {
+    return { buffer: await gradientFallback(), usedFallback: true };
+  }
+
+  // Take the first N photos with distinct ids to guarantee variety.
+  const distinct: PexelsPhoto[] = [];
+  const seen = new Set<number>();
+  for (const photo of photos) {
+    if (seen.has(photo.id)) continue;
+    seen.add(photo.id);
+    distinct.push(photo);
+    if (distinct.length === candidates) break;
+  }
+
+  // Download the chosen photos in parallel, dropping any that fail.
+  const downloads = await Promise.allSettled(
+    distinct.map((photo) =>
+      withRetry(
+        (signal) => downloadAndResize(photo.src.portrait, fetchImpl, signal),
+        retries,
+        timeoutMs,
+      ),
+    ),
+  );
+  const available = distinct
+    .map((photo, i) => ({ photo, result: downloads[i] }))
+    .filter(
+      (
+        d,
+      ): d is { photo: PexelsPhoto; result: PromiseFulfilledResult<Buffer> } =>
+        d.result.status === "fulfilled",
+    )
+    .map(({ photo, result }) => ({ photo, buffer: result.value }));
+
+  if (available.length === 0) {
+    return { buffer: await gradientFallback(), usedFallback: true };
+  }
+  // A single candidate needs no judging.
+  if (available.length === 1) {
+    return { buffer: available[0].buffer, usedFallback: false, chosenIndex: 0 };
+  }
+
+  const candidateMeta: Candidate[] = available.map(({ photo }) => ({
+    id: photo.id,
+    alt: photo.alt ?? "",
+    avgColor: photo.avg_color ?? "",
+    photographer: photo.photographer ?? "",
+  }));
+
+  let choice = { bestIndex: 0, reasons: [] as string[] };
+  try {
+    choice = await evaluate({ ctx, candidates: candidateMeta });
+  } catch {
+    // Judge failed; keep the first candidate so the pipeline never blocks.
+  }
+
+  return {
+    buffer: available[choice.bestIndex].buffer,
+    usedFallback: false,
+    chosenIndex: choice.bestIndex,
+    reasons: choice.reasons,
+  };
 }

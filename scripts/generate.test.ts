@@ -18,7 +18,8 @@ vi.mock("./lib/producer.ts", () => ({
   produceReviewedSpec: vi.fn(),
 }));
 vi.mock("./lib/backgroundImage.ts", () => ({
-  fetchBackground: vi.fn(),
+  fetchBestBackground: vi.fn(),
+  CANDIDATE_COUNT: 3,
 }));
 vi.mock("./lib/render.ts", () => ({
   compositeFrame: vi.fn(),
@@ -40,7 +41,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
-import { fetchBackground } from "./lib/backgroundImage.ts";
+import { fetchBestBackground } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 import { readFile, writeFile } from "node:fs/promises";
 
@@ -70,9 +71,11 @@ function happyPath() {
     return { spec, verdict, attempts: 1 };
   });
   vi.mocked(getAttribution).mockReturnValue("Carefree attribution");
-  vi.mocked(fetchBackground).mockResolvedValue({
+  vi.mocked(fetchBestBackground).mockResolvedValue({
     buffer: Buffer.from("bg"),
     usedFallback: false,
+    chosenIndex: 0,
+    reasons: [],
   });
   vi.mocked(compositeFrame).mockResolvedValue(Buffer.from("frame"));
   vi.mocked(renderVideo).mockResolvedValue();
@@ -118,11 +121,16 @@ describe("generate", () => {
       video_path: "vid-1.mp4",
     });
     expect(bumpTopic).toHaveBeenCalledWith("Marine biology");
+    expect(fetchBestBackground).toHaveBeenCalledWith({
+      image_prompt: spec.image_prompt,
+      topic: spec.topic,
+      fact_text: spec.fact_text,
+    });
   });
 
   it("logs a warning when the image fallback is used", async () => {
     happyPath();
-    vi.mocked(fetchBackground).mockResolvedValue({
+    vi.mocked(fetchBestBackground).mockResolvedValue({
       buffer: Buffer.from("grad"),
       usedFallback: true,
     });
