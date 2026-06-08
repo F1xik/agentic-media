@@ -10,8 +10,8 @@ import {
   extractJsonObject,
 } from "./generationSpec.ts";
 
-/** Grading is a cheaper checking task; use the faster, cheaper Haiku model. */
-export const GRADER_MODEL = "haiku";
+/** Grading factual accuracy benefits from a stronger judge; use Sonnet 4.6. */
+export const GRADER_MODEL = "claude-sonnet-4-6";
 
 /** Per-axis judgement of a generated spec. Scores are 1 (worst) to 5 (best). */
 export type Grade = {
