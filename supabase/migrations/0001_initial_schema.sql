@@ -5,14 +5,13 @@
 -- trigger. see docs/plan.md sections 3 and 4 and docs/tasks/02-supabase-schema-migration.md.
 --
 -- owner configuration:
---   rls is keyed to a single owner. the owner's auth.uid() is read from the
---   postgres custom setting "app.owner_id". after creating the owner user in
---   supabase auth, configure it once (run as a privileged role) with e.g.:
---
---     alter database postgres set app.owner_id = '00000000-0000-0000-0000-000000000000';
---
---   until it is set, public.is_owner() returns false and every anon/authenticated
---   session sees zero rows. the service-role key bypasses rls regardless.
+--   rls is keyed to a single owner via public.is_owner(). NOTE: the GUC-based
+--   approach below (reading "app.owner_id" via current_setting) does NOT work on
+--   hosted supabase -- `alter database postgres set ...` fails with permission
+--   denied because the project role is not a superuser. migration 0003 supersedes
+--   this by storing the owner's auth.uid() in public.app_config and rewriting
+--   is_owner() to read from it. configure the owner per 0003's header, not here.
+--   the service-role key bypasses rls regardless.
 
 -- helper: true when the current session is the configured owner.
 create or replace function public.is_owner()

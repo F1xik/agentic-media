@@ -48,3 +48,19 @@ export async function getSignedVideoUrl(videoPath: string): Promise<string> {
   if (error) throw error;
   return data.signedUrl;
 }
+
+export async function approveVideo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("videos")
+    .update({ status: "approved" })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function rejectVideo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("videos")
+    .update({ status: "rejected" })
+    .eq("id", id);
+  if (error) throw error;
+}

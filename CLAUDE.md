@@ -66,13 +66,17 @@ Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
 
 **Migrations** in `supabase/migrations/` are applied automatically by `.github/workflows/migrate.yml` when commits that touch `supabase/migrations/**` land on `main`. The workflow uses two Actions secrets: `SUPABASE_ACCESS_TOKEN` (personal access token from supabase.com/dashboard/account/tokens) and `SUPABASE_DB_PASSWORD` (database password from Project Settings → Database). The workflow can also be triggered manually via `workflow_dispatch`. No manual `supabase db push` is needed after secrets are set.
 
-**Owner configuration:** after creating the owner user, run once as a privileged role:
+**Owner configuration:** `is_owner()` compares `auth.uid()` against the single owner row in `public.app_config` (see migration `0003`). After creating the owner user, run once in the SQL editor:
 
 ```sql
-alter database postgres set app.owner_id = '<auth.uid>';
+insert into public.app_config (id, owner_id)
+select true, id from auth.users where email = '<owner-email>'
+on conflict (id) do update set owner_id = excluded.owner_id;
 ```
 
-Until set, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
+Until a row exists, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
+
+> Earlier migrations keyed `is_owner()` to the `app.owner_id` Postgres GUC via `alter database postgres set ...`. That fails on hosted Supabase (`42501: permission denied to set parameter` — the project role is not a superuser), so `0003` moved owner identification to `app_config`.
 
 ### `videos.status` state machine
 
