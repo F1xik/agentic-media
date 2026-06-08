@@ -12,10 +12,13 @@ npm run lint         # eslint
 npm run format       # prettier --write .
 npm run format:check # prettier --check .
 npm run test         # vitest run (all tests, no watch)
+npm run eval         # real model-graded prompt evals (needs claude CLI + token)
 npm run preview      # preview the production build
 ```
 
 Run a single test file: `npx vitest run src/path/to/file.test.tsx`
+
+**Prompt evals vs. unit tests.** `*.test.ts` files are deterministic and mock the `claude` CLI; they run in `npm run test` and CI. `scripts/evals/*.eval.ts` are **real** model-graded evals that spawn the live `claude` CLI: the producer eval grades real output with an LLM judge (`scripts/lib/factGrader.ts`), and the evaluator eval checks the evaluator accepts good specs and rejects bad ones. They run via `npm run eval` (config `vitest.eval.config.ts`, which retries to absorb model variance) and are excluded from `npm run test` because the default `**/*.test.ts` glob doesn't match `*.eval.ts`. The `evals.yml` workflow runs them on any change to the prompt files (`generationSpec.ts`, `specEvaluator.ts`, `factGrader.ts`) or the eval suite, gating prompt changes on `CLAUDE_CODE_OAUTH_TOKEN`.
 
 **All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)`; changed behaviour gets updated tests. Tests live next to the source file they cover (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
 
@@ -92,6 +95,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 
 - `generate.yml` — `schedule:` cron + `workflow_dispatch`. Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage.
 - `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
+- `evals.yml` — `pull_request`/`push` filtered to the prompt files + eval suite (plus `workflow_dispatch`). Runs `npm run eval` (real model-graded prompt evals) with `CLAUDE_CODE_OAUTH_TOKEN`, so prompt changes are gated on the evals passing.
 
 ### Environment variables
 

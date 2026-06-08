@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "eval": "vitest run --config vitest.eval.config.ts",
     "generate": "tsx scripts/generate.ts",
     "prepare": "husky"
   },
