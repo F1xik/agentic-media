@@ -6,8 +6,11 @@ import { spawn } from "node:child_process";
 
 export const MAX_FACT_LENGTH = 160;
 
-/** Generation is the harder creative task; use the most capable Opus model. */
-export const GENERATION_MODEL = "opus";
+/** Generation is the harder creative task; use Sonnet 4.6. */
+export const GENERATION_MODEL = "claude-sonnet-4-6";
+
+/** Reasoning effort for the producer. Sonnet 4.6 accepts low|medium|high. */
+export const GENERATION_EFFORT = "medium";
 
 export type GenerationSpec = {
   topic: string;
@@ -158,6 +161,8 @@ export async function requestGenerationSpec({
     prompt,
     "--model",
     GENERATION_MODEL,
+    "--effort",
+    GENERATION_EFFORT,
     "--output-format",
     "json",
   ]);

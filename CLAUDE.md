@@ -12,10 +12,13 @@ npm run lint         # eslint
 npm run format       # prettier --write .
 npm run format:check # prettier --check .
 npm run test         # vitest run (all tests, no watch)
+npm run eval         # real model-graded prompt evals (needs claude CLI + token)
 npm run preview      # preview the production build
 ```
 
 Run a single test file: `npx vitest run src/path/to/file.test.tsx`
+
+**Prompt evals vs. unit tests.** `*.test.ts` files are deterministic and mock the `claude` CLI; they run in `npm run test` and CI. `scripts/evals/*.eval.ts` are **real** model-graded evals that spawn the live `claude` CLI: the producer eval grades real output with an LLM judge (`scripts/lib/factGrader.ts`), and the evaluator eval checks the evaluator accepts good specs and rejects bad ones. They run via `npm run eval` (config `vitest.eval.config.ts`, which retries to absorb model variance) and are excluded from `npm run test` because the default `**/*.test.ts` glob doesn't match `*.eval.ts`. The `evals.yml` workflow runs them on any change to the prompt files (`generationSpec.ts`, `specEvaluator.ts`, `factGrader.ts`) or the eval suite, gating prompt changes on `CLAUDE_CODE_OAUTH_TOKEN`.
 
 **All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)`; changed behaviour gets updated tests. Tests live next to the source file they cover (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
 
@@ -52,7 +55,7 @@ Stack: React 18, TypeScript, Vite 6, Tailwind v4 (`@tailwindcss/vite`), TanStack
 
 Node + TypeScript scripts run by GitHub Actions workflows:
 
-- `scripts/generate.ts` — orchestrates image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Opus** produces a spec, a second call to Claude **Haiku** (`scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`).
+- `scripts/generate.ts` — orchestrates image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Sonnet 4.6** (at `medium` effort) produces a spec, a second call to Claude **Haiku** (`scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`); the producer's reasoning depth is set via `--effort` (`GENERATION_EFFORT`). Effort is Sonnet/Opus-only, so the Haiku evaluator and grader don't pass it.
 - `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
 - `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
 
@@ -92,6 +95,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 
 - `generate.yml` — `schedule:` cron + `workflow_dispatch`. Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage.
 - `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
+- `evals.yml` — `pull_request`/`push` filtered to the prompt files + eval suite (plus `workflow_dispatch`). Runs `npm run eval` (real model-graded prompt evals) with `CLAUDE_CODE_OAUTH_TOKEN`, so prompt changes are gated on the evals passing.
 
 ### Environment variables
 

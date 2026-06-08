@@ -1,0 +1,51 @@
+name: Prompt evals
+
+# Real model-graded evals of the producer/evaluator prompts. They spawn the
+# `claude` CLI, so they run only when a prompt (or the eval suite itself)
+# changes — not on every push — to keep token use modest.
+on:
+  pull_request:
+    paths:
+      - "scripts/lib/generationSpec.ts"
+      - "scripts/lib/specEvaluator.ts"
+      - "scripts/lib/factGrader.ts"
+      - "scripts/evals/**"
+      - "vitest.eval.config.ts"
+      - ".github/workflows/evals.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/lib/generationSpec.ts"
+      - "scripts/lib/specEvaluator.ts"
+      - "scripts/lib/factGrader.ts"
+      - "scripts/evals/**"
+      - "vitest.eval.config.ts"
+      - ".github/workflows/evals.yml"
+  workflow_dispatch:
+
+# Don't run overlapping eval jobs for the same ref; they only burn tokens.
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run prompt evals
+        run: npm run eval
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
