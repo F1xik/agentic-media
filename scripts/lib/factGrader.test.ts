@@ -11,6 +11,7 @@ const spec = {
   topic: "Marine biology",
   hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts and blue blood.",
+  image_query: "octopus",
   image_prompt: "A deep blue ocean with an octopus",
   music: "carefree",
 };

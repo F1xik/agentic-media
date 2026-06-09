@@ -6,7 +6,10 @@
 // and CLAUDE_CODE_OAUTH_TOKEN.
 
 import { describe, it, expect } from "vitest";
-import { requestGenerationSpec } from "../lib/generationSpec.ts";
+import {
+  requestGenerationSpec,
+  MAX_IMAGE_QUERY_WORDS,
+} from "../lib/generationSpec.ts";
 import { gradeSpec } from "../lib/factGrader.ts";
 
 const MUSIC = ["carefree", "inspired", "wholesome"];
@@ -29,6 +32,17 @@ describe("producer prompt", () => {
       `topic should be 2-4 words, got "${spec.topic}"`,
     ).toBeGreaterThanOrEqual(2);
     expect(topicWords).toBeLessThanOrEqual(4);
+
+    // image_query must be a short keyword search term (1-3 nouns), not the
+    // verbose image_prompt sentence — sending a sentence to Pexels was the bug
+    // that returned generic, off-subject textures. Enforced by the prompt only,
+    // so check it here deterministically.
+    const queryWords = spec.image_query.split(/\s+/).filter(Boolean).length;
+    expect(
+      queryWords,
+      `image_query should be 1-${MAX_IMAGE_QUERY_WORDS} words, got "${spec.image_query}"`,
+    ).toBeGreaterThanOrEqual(1);
+    expect(queryWords).toBeLessThanOrEqual(MAX_IMAGE_QUERY_WORDS);
 
     const grade = await gradeSpec({ spec });
     const ctx = `spec=${JSON.stringify(spec)} grader=${grade.notes}`;

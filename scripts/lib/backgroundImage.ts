@@ -153,6 +153,9 @@ export type FetchBestBackgroundOptions = FetchBackgroundOptions & {
   candidates?: number;
   /** Injectable evaluator for tests; defaults to the live Claude judge. */
   evaluate?: typeof evaluateImageCandidates;
+  /** Invoked when the judge throws, so callers can log it instead of the
+   *  failure silently defaulting to candidate 0. */
+  onJudgeError?: (err: unknown) => void | Promise<void>;
 };
 
 export type BestBackgroundResult = BackgroundResult & {
@@ -160,6 +163,8 @@ export type BestBackgroundResult = BackgroundResult & {
   chosenIndex?: number;
   /** The judge's reasons for the chosen candidate. */
   reasons?: string[];
+  /** True when the judge threw and candidate 0 was used as the fallback. */
+  judgeFailed?: boolean;
 };
 
 /**
@@ -177,6 +182,7 @@ export async function fetchBestBackground(
     apiKey = process.env.PEXELS_API_KEY,
     candidates = CANDIDATE_COUNT,
     evaluate = evaluateImageCandidates,
+    onJudgeError,
   }: FetchBestBackgroundOptions = {},
 ): Promise<BestBackgroundResult> {
   if (!apiKey) {
@@ -187,7 +193,7 @@ export async function fetchBestBackground(
   let photos: PexelsPhoto[];
   try {
     photos = await withRetry(
-      (signal) => searchPexels(ctx.image_prompt, 30, fetchImpl, apiKey, signal),
+      (signal) => searchPexels(ctx.image_query, 30, fetchImpl, apiKey, signal),
       retries,
       timeoutMs,
     );
@@ -241,14 +247,19 @@ export async function fetchBestBackground(
   }));
 
   let choice = { bestIndex: 0, reasons: [] as string[] };
+  let judgeFailed = false;
   try {
     choice = await evaluate({
       ctx,
       candidates: candidateMeta,
       images: available.map((a) => a.buffer),
     });
-  } catch {
-    // Judge failed; keep the first candidate so the pipeline never blocks.
+  } catch (err) {
+    // Judge failed; keep the first candidate so the pipeline never blocks, but
+    // surface the error so a crashed judge is not mistaken for a working one.
+    judgeFailed = true;
+    console.error("image judge failed; defaulting to candidate 0:", err);
+    await onJudgeError?.(err);
   }
 
   return {
@@ -256,5 +267,6 @@ export async function fetchBestBackground(
     usedFallback: false,
     chosenIndex: choice.bestIndex,
     reasons: choice.reasons,
+    judgeFailed,
   };
 }

@@ -8,6 +8,7 @@ import {
   type GenerationSpec,
   MAX_FACT_LENGTH,
   MAX_HOOK_LENGTH,
+  MAX_IMAGE_QUERY_WORDS,
   defaultRunner,
   extractJsonObject,
 } from "./generationSpec.ts";
@@ -30,7 +31,7 @@ export function buildEvaluatorPrompt(
     "You are a strict editor and fact-checker for a faceless YouTube Shorts channel of surprising, true fun facts.",
     "Judge the generated item below against ALL of these criteria:",
     "1. Factual accuracy: fact_text must be true, verifiable, and not a hallucination or distortion.",
-    `2. Format and constraints: topic is 2-4 words; hook is at most ${MAX_HOOK_LENGTH} characters with no hashtags; fact_text is at most ${MAX_FACT_LENGTH} characters with no hashtags; image_prompt describes a vertical background image with no embedded text; music is one of: ${musicIds.join(", ")}.`,
+    `2. Format and constraints: topic is 2-4 words; hook is at most ${MAX_HOOK_LENGTH} characters with no hashtags; fact_text is at most ${MAX_FACT_LENGTH} characters with no hashtags; image_query is 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the subject (a stock-photo search term, not a sentence); image_prompt describes a vertical background image with no embedded text; music is one of: ${musicIds.join(", ")}.`,
     "3. Engagement: the fact is genuinely surprising and hook-worthy for a short-form audience, not bland or widely-known trivia; AND the hook is a real curiosity gap (a teaser or question that makes the viewer want the answer) that sets up fact_text as the payoff without restating it or giving the answer away.",
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     'Schema: {"approved": boolean, "issues": string[]}',

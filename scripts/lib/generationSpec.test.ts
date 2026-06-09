@@ -14,6 +14,7 @@ const validSpec = {
   topic: "Marine biology",
   hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts and blue blood.",
+  image_query: "octopus",
   image_prompt: "A deep blue ocean with an octopus",
   music: "carefree",
 };
@@ -37,6 +38,8 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("2-4 words");
     expect(prompt).toContain("No hashtags");
     expect(prompt).toContain("no text in the image");
+    expect(prompt).toContain("image_query");
+    expect(prompt).toContain("concrete nouns");
     expect(prompt).toContain("surprising, verifiable, well-known");
     expect(prompt).toContain("curiosity-gap");
     expect(prompt).toContain(String(MAX_HOOK_LENGTH));
@@ -95,6 +98,19 @@ describe("parseGenerationSpec", () => {
   it("rejects a missing hook", () => {
     const raw = JSON.stringify({ ...validSpec, hook: "" });
     expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/hook/);
+  });
+
+  it("rejects an image_query with more than three words", () => {
+    const raw = JSON.stringify({
+      ...validSpec,
+      image_query: "a deep blue ocean with an octopus",
+    });
+    expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/image_query/);
+  });
+
+  it("rejects a missing image_query", () => {
+    const raw = JSON.stringify({ ...validSpec, image_query: "" });
+    expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/image_query/);
   });
 
   it("rejects an unknown music id", () => {
