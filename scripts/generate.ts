@@ -16,6 +16,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution, MUSIC_DIR } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
+import { pickTrendingTopic } from "./lib/trendingTopic.ts";
 import { fetchBestBackground, CANDIDATE_COUNT } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 
@@ -36,13 +37,29 @@ export async function generate(): Promise<string> {
   try {
     await appendLog(id, "init", "info", "generation started");
 
-    // 1. Produce a spec, biased away from recently-used topics, and have the
-    //    evaluator cross-check it; retry with feedback until approved (or fail).
+    // 1. Pick a currently-trending subject area to anchor the fact around (a
+    //    web-grounded `claude` call). It returns null if web search is
+    //    unavailable; we then fall back to the producer's free-choice topic so a
+    //    trending miss never blocks the pipeline.
     const avoidTopics = await recentTopics();
+    const trending = await pickTrendingTopic({ avoidTopics });
+    await appendLog(
+      id,
+      "trending",
+      trending ? "info" : "warn",
+      trending
+        ? `anchoring on trend "${trending.topic}"${trending.rationale ? `: ${trending.rationale}` : ""}`
+        : "trending pick unavailable; using free-choice topic",
+    );
+
+    // 2. Produce a spec, biased away from recently-used topics and anchored to
+    //    the trend, and have the evaluator cross-check it; retry with feedback
+    //    until approved (or fail).
     const validMusicIds = parseCredits().map((t) => t.id);
     const { spec } = await produceReviewedSpec({
       avoidTopics,
       validMusicIds,
+      trendingTopic: trending?.topic,
       onRound: ({ attempt, verdict }) =>
         appendLog(
           id,
@@ -68,7 +85,7 @@ export async function generate(): Promise<string> {
       `topic="${spec.topic}" image_query="${spec.image_query}"`,
     );
 
-    // 2. Background image: fetch 3 distinct candidates, let the judge pick the
+    // 3. Background image: fetch 3 distinct candidates, let the judge pick the
     //    best match. Gradient fallback never blocks the pipeline.
     const {
       buffer: bg,
@@ -106,7 +123,7 @@ export async function generate(): Promise<string> {
             }`,
     );
 
-    // 3. Composite the fact text and render the mp4.
+    // 4. Composite the fact text and render the mp4.
     const frame = await compositeFrame(bg, spec.hook, spec.fact_text);
     await writeFile(FRAME_PATH, frame);
     const musicPath = join(MUSIC_DIR, `${spec.music}.mp3`);
@@ -117,7 +134,7 @@ export async function generate(): Promise<string> {
     });
     await appendLog(id, "render", "info", "rendered mp4");
 
-    // 4. Upload to Storage and mark ready for review.
+    // 5. Upload to Storage and mark ready for review.
     const buffer = await readFile(OUT_PATH);
     const videoPath = await uploadVideo(id, buffer);
     await updateVideo(id, { status: "pending_review", video_path: videoPath });

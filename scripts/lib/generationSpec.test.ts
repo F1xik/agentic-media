@@ -45,6 +45,18 @@ describe("buildPrompt", () => {
     expect(prompt).toContain(String(MAX_HOOK_LENGTH));
   });
 
+  it("anchors the fact around a trending topic when one is given", () => {
+    const prompt = buildPrompt([], MUSIC, [], "Olympic swimming");
+    expect(prompt).toContain("Olympic swimming");
+    expect(prompt).toContain("Anchor this around the currently-trending");
+  });
+
+  it("omits the anchor line when no trending topic is given", () => {
+    expect(buildPrompt([], MUSIC)).not.toContain(
+      "Anchor this around the currently-trending",
+    );
+  });
+
   it("appends evaluator feedback when provided", () => {
     const prompt = buildPrompt(["space"], MUSIC, [
       "fact is not surprising",
@@ -163,6 +175,26 @@ describe("requestGenerationSpec", () => {
       run,
     });
     expect(spec).toEqual(validSpec);
+  });
+
+  it("forwards a trending topic into the prompt", async () => {
+    const run = vi.fn().mockResolvedValue(JSON.stringify(validSpec));
+    await requestGenerationSpec({
+      avoidTopics: [],
+      validMusicIds: MUSIC,
+      trendingTopic: "Olympic swimming",
+      run,
+    });
+    expect(run).toHaveBeenCalledWith("claude", [
+      "-p",
+      expect.stringContaining("Olympic swimming"),
+      "--model",
+      "claude-sonnet-4-6",
+      "--effort",
+      "medium",
+      "--output-format",
+      "json",
+    ]);
   });
 
   it("forwards evaluator feedback into the prompt", async () => {
