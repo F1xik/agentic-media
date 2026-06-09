@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./generationSpec.ts", () => ({
+vi.mock("./generationSpec.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./generationSpec.ts")>()),
   requestGenerationSpec: vi.fn(),
 }));
 vi.mock("./specEvaluator.ts", () => ({
@@ -9,7 +10,10 @@ vi.mock("./specEvaluator.ts", () => ({
 }));
 
 import { produceReviewedSpec } from "./producer.ts";
-import { requestGenerationSpec } from "./generationSpec.ts";
+import {
+  SpecValidationError,
+  requestGenerationSpec,
+} from "./generationSpec.ts";
 import { evaluateSpec } from "./specEvaluator.ts";
 
 const MUSIC = ["carefree", "inspired", "wholesome"];
@@ -112,5 +116,54 @@ describe("produceReviewedSpec", () => {
       spec,
       verdict: { approved: true, issues: [] },
     });
+  });
+
+  it("retries a validation failure with the error fed back as feedback", async () => {
+    const error = new SpecValidationError(
+      "generation spec: image_query is 4 words (max 3)",
+    );
+    vi.mocked(requestGenerationSpec)
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce(spec);
+    vi.mocked(evaluateSpec).mockResolvedValue({ approved: true, issues: [] });
+    const onInvalid = vi.fn();
+
+    const result = await produceReviewedSpec({ ...opts, onInvalid });
+
+    expect(result.attempts).toBe(2);
+    expect(onInvalid).toHaveBeenCalledTimes(1);
+    expect(onInvalid).toHaveBeenCalledWith({ attempt: 1, error });
+    // The invalid round never reaches the evaluator.
+    expect(evaluateSpec).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(requestGenerationSpec).mock.calls[1][0]).toMatchObject({
+      feedback: [
+        "Your previous reply was invalid and was rejected before review: generation spec: image_query is 4 words (max 3). Reply again with ONE corrected JSON object.",
+      ],
+    });
+  });
+
+  it("throws once attempts are exhausted by validation failures", async () => {
+    vi.mocked(requestGenerationSpec).mockRejectedValue(
+      new SpecValidationError("generation spec: hook is 99 chars (max 70)"),
+    );
+
+    await expect(
+      produceReviewedSpec({ ...opts, maxAttempts: 2 }),
+    ).rejects.toThrow(/rejected after 2 attempts: .*hook is 99 chars/);
+    expect(requestGenerationSpec).toHaveBeenCalledTimes(2);
+    expect(evaluateSpec).not.toHaveBeenCalled();
+  });
+
+  it("rethrows non-validation errors immediately without retrying", async () => {
+    vi.mocked(requestGenerationSpec).mockRejectedValue(
+      new Error("claude exited with code 1: boom"),
+    );
+    const onInvalid = vi.fn();
+
+    await expect(produceReviewedSpec({ ...opts, onInvalid })).rejects.toThrow(
+      /claude exited with code 1/,
+    );
+    expect(requestGenerationSpec).toHaveBeenCalledTimes(1);
+    expect(onInvalid).not.toHaveBeenCalled();
   });
 });

@@ -69,6 +69,13 @@ export async function generate(): Promise<string> {
             ? `approved on attempt ${attempt}`
             : `attempt ${attempt} rejected: ${verdict.issues.join("; ")}`,
         ),
+      onInvalid: ({ attempt, error }) =>
+        appendLog(
+          id,
+          "produce",
+          "warn",
+          `attempt ${attempt} returned an invalid spec, retrying: ${error.message}`,
+        ),
     });
     const musicAttribution = getAttribution(spec.music);
     await updateVideo(id, {
