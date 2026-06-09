@@ -40,6 +40,8 @@ export type Candidate = {
 
 /** The spec fields the chosen image should match. */
 export type ImageEvalContext = {
+  /** Keyword search query used to fetch the candidates from Pexels. */
+  image_query: string;
   image_prompt: string;
   topic: string;
   fact_text: string;

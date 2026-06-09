@@ -49,6 +49,7 @@ const spec = {
   topic: "Marine biology",
   hook: "How many hearts does an octopus have?",
   fact_text: "Octopuses have three hearts.",
+  image_query: "octopus",
   image_prompt: "an octopus",
   music: "carefree",
 };
@@ -121,11 +122,15 @@ describe("generate", () => {
       video_path: "vid-1.mp4",
     });
     expect(bumpTopic).toHaveBeenCalledWith("Marine biology");
-    expect(fetchBestBackground).toHaveBeenCalledWith({
-      image_prompt: spec.image_prompt,
-      topic: spec.topic,
-      fact_text: spec.fact_text,
-    });
+    expect(fetchBestBackground).toHaveBeenCalledWith(
+      {
+        image_query: spec.image_query,
+        image_prompt: spec.image_prompt,
+        topic: spec.topic,
+        fact_text: spec.fact_text,
+      },
+      { onJudgeError: expect.any(Function) },
+    );
   });
 
   it("logs a warning when the image fallback is used", async () => {

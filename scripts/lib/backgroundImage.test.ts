@@ -50,7 +50,8 @@ function pexelsSearchPhotos(ids: number[]) {
 }
 
 const CTX = {
-  image_prompt: "a deep blue ocean",
+  image_query: "octopus",
+  image_prompt: "a deep blue ocean with a lone octopus on the sea floor",
   topic: "Marine biology",
   fact_text: "Octopuses have three hearts.",
 };
@@ -169,6 +170,11 @@ describe("fetchBestBackground", () => {
     expect(result.chosenIndex).toBe(2);
     expect(result.reasons).toEqual(["best contrast"]);
     expect(result.buffer.subarray(0, 4).toString("hex")).toBe("89504e47");
+    // Pexels is searched on the short image_query keyword, NOT the verbose
+    // image_prompt sentence (the original bug that returned generic textures).
+    const searchUrl = fetchImpl.mock.calls[0][0] as string;
+    expect(searchUrl).toContain("query=octopus");
+    expect(searchUrl).not.toContain("deep");
     // 1 search + 4 distinct downloads.
     expect(fetchImpl).toHaveBeenCalledTimes(5);
     // The judge sees the four distinct candidates (ids 1, 2, 3, 4)...
@@ -181,21 +187,27 @@ describe("fetchBestBackground", () => {
     expect(arg.images.every((b: unknown) => Buffer.isBuffer(b))).toBe(true);
   });
 
-  it("defaults to the first candidate when the judge fails", async () => {
+  it("defaults to the first candidate and surfaces the error when the judge fails", async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(pexelsSearchPhotos([1, 2, 3]))
       .mockResolvedValue(photoDownloadResponse());
     const evaluate = vi.fn().mockRejectedValue(new Error("claude down"));
+    const onJudgeError = vi.fn();
 
     const result = await fetchBestBackground(CTX, {
       fetchImpl: fetchImpl as unknown as typeof fetch,
       apiKey: FAKE_KEY,
       evaluate,
+      onJudgeError,
     });
 
     expect(result.usedFallback).toBe(false);
     expect(result.chosenIndex).toBe(0);
+    // The judge failure is observable, not silently swallowed.
+    expect(result.judgeFailed).toBe(true);
+    expect(onJudgeError).toHaveBeenCalledOnce();
+    expect(onJudgeError.mock.calls[0][0]).toBeInstanceOf(Error);
   });
 
   it("skips the judge when only one candidate downloads", async () => {

@@ -19,6 +19,7 @@ const goodSpec = {
   hook: "One animal poops in a shape no other can. Guess which?",
   fact_text:
     "Wombats are the only animals known to produce cube-shaped poop, formed by the varying elasticity of their intestinal walls.",
+  image_query: "wombat",
   image_prompt:
     "A wombat walking through a grassy Australian field at golden hour",
   music: "carefree",

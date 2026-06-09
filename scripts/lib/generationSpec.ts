@@ -9,6 +9,10 @@ export const MAX_FACT_LENGTH = 160;
 /** Hooks are shown big at the top of the frame, so keep them short and punchy. */
 export const MAX_HOOK_LENGTH = 70;
 
+/** image_query is a stock-photo search query; keep it to a few concrete nouns
+ *  so Pexels matches the actual subject instead of returning generic textures. */
+export const MAX_IMAGE_QUERY_WORDS = 3;
+
 /** Generation is the harder creative task; use Sonnet 4.6. */
 export const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -20,6 +24,8 @@ export type GenerationSpec = {
   /** A short curiosity-gap teaser shown at the top of the frame to stop the scroll. */
   hook: string;
   fact_text: string;
+  /** Short keyword query (1-3 concrete nouns naming the subject) for stock-photo search. */
+  image_query: string;
   image_prompt: string;
   /** Music track id (filename without `.mp3`); must be a committed track. */
   music: string;
@@ -47,11 +53,12 @@ export function buildPrompt(
     "You are scripting a faceless YouTube Shorts channel of surprising, true fun facts.",
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     "Schema:",
-    '{"topic": string, "hook": string, "fact_text": string, "image_prompt": string, "music": string}',
+    '{"topic": string, "hook": string, "fact_text": string, "image_query": string, "image_prompt": string, "music": string}',
     `- topic: a short subject area (2-4 words). ${avoid}`,
     `- hook: a short curiosity-gap teaser or question (at most ${MAX_HOOK_LENGTH} characters, no hashtags) that makes the viewer want the answer. It must set up fact_text as the payoff and must NOT simply restate the fact or give the answer away.`,
     `- fact_text: ONE surprising, verifiable, well-known fact, at most ${MAX_FACT_LENGTH} characters. No hashtags.`,
-    "- image_prompt: a vivid description for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes.",
+    `- image_query: 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the single main physical subject to photograph, exactly as you would type into a stock-photo search (e.g. "pistol shrimp", "snow leopard", "lightning storm"). Use the most specific, photographable noun for the subject of the fact — NOT the abstract topic area, NOT a full sentence, no adjectives of mood/lighting, no punctuation, no articles.`,
+    "- image_prompt: a vivid description of that same subject for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes. This describes the desired shot for judging visual fit; it is NOT used as the search query.",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
   ];
 
@@ -126,12 +133,19 @@ export function parseGenerationSpec(
   const topic = str("topic");
   const hook = str("hook");
   const fact_text = str("fact_text");
+  const image_query = str("image_query");
   const image_prompt = str("image_prompt");
   const music = str("music").replace(/\.mp3$/i, "");
 
   if (hook.length > MAX_HOOK_LENGTH) {
     throw new Error(
       `generation spec: hook is ${hook.length} chars (max ${MAX_HOOK_LENGTH})`,
+    );
+  }
+  const queryWords = image_query.split(/\s+/).filter(Boolean).length;
+  if (queryWords > MAX_IMAGE_QUERY_WORDS) {
+    throw new Error(
+      `generation spec: image_query is ${queryWords} words (max ${MAX_IMAGE_QUERY_WORDS})`,
     );
   }
   if (fact_text.length > MAX_FACT_LENGTH) {
@@ -145,7 +159,7 @@ export function parseGenerationSpec(
     );
   }
 
-  return { topic, hook, fact_text, image_prompt, music };
+  return { topic, hook, fact_text, image_query, image_prompt, music };
 }
 
 export type RequestOptions = {

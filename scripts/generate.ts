@@ -61,7 +61,12 @@ export async function generate(): Promise<string> {
       music_track: spec.music,
       music_attribution: musicAttribution,
     });
-    await appendLog(id, "spec", "info", `topic="${spec.topic}"`);
+    await appendLog(
+      id,
+      "spec",
+      "info",
+      `topic="${spec.topic}" image_query="${spec.image_query}"`,
+    );
 
     // 2. Background image: fetch 3 distinct candidates, let the judge pick the
     //    best match. Gradient fallback never blocks the pipeline.
@@ -70,20 +75,35 @@ export async function generate(): Promise<string> {
       usedFallback,
       chosenIndex,
       reasons,
-    } = await fetchBestBackground({
-      image_prompt: spec.image_prompt,
-      topic: spec.topic,
-      fact_text: spec.fact_text,
-    });
+      judgeFailed,
+    } = await fetchBestBackground(
+      {
+        image_query: spec.image_query,
+        image_prompt: spec.image_prompt,
+        topic: spec.topic,
+        fact_text: spec.fact_text,
+      },
+      {
+        onJudgeError: (err) =>
+          appendLog(
+            id,
+            "image",
+            "warn",
+            `image judge failed: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+      },
+    );
     await appendLog(
       id,
       "image",
-      usedFallback ? "warn" : "info",
+      usedFallback || judgeFailed ? "warn" : "info",
       usedFallback
         ? "Pexels fetch failed; using gradient fallback"
-        : `selected candidate ${chosenIndex} of ${CANDIDATE_COUNT}${
-            reasons?.length ? `: ${reasons.join("; ")}` : ""
-          }`,
+        : judgeFailed
+          ? `image judge failed; defaulted to candidate ${chosenIndex} of ${CANDIDATE_COUNT}`
+          : `selected candidate ${chosenIndex} of ${CANDIDATE_COUNT}${
+              reasons?.length ? `: ${reasons.join("; ")}` : ""
+            }`,
     );
 
     // 3. Composite the fact text and render the mp4.

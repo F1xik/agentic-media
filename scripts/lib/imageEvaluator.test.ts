@@ -21,6 +21,7 @@ describe("model selection", () => {
 });
 
 const ctx: ImageEvalContext = {
+  image_query: "octopus",
   image_prompt: "A deep blue ocean with an octopus",
   topic: "Marine biology",
   fact_text: "Octopuses have three hearts and blue blood.",
