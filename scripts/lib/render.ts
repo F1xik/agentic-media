@@ -6,13 +6,13 @@ import sharp from "sharp";
 import { WIDTH, HEIGHT, wrapText, buildOverlaySvg } from "./textOverlay.ts";
 
 /** Approx. characters per line at the default overlay font size. */
-const MAX_CHARS_PER_LINE = 22;
+const MAX_CHARS_PER_LINE = 26;
 /** Fewer chars per line for the larger hook font so it stays on-screen. */
-const MAX_HOOK_CHARS_PER_LINE = 18;
+const MAX_HOOK_CHARS_PER_LINE = 22;
 
 /**
  * Resize the background to a portrait frame and composite the wrapped hook
- * (top) and fact text (centered) — each a contrast band + outlined text — over
+ * (top) and fact text (bottom) — each a contrast band + outlined text — over
  * it, returning a PNG buffer.
  */
 export async function compositeFrame(

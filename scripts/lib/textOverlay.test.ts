@@ -102,8 +102,8 @@ describe("buildOverlaySvg", () => {
     const lines = ["Octopuses have", "three hearts"];
     const svg = buildOverlaySvg({ lines });
     const bandWidth = Number(svg.match(/<rect [^>]*width="(\d+)"/)![1]);
-    // Widest line (14 chars) at fontSize 64, ~0.6 advance ratio ≈ 538px of text.
-    const estimatedTextWidth = "Octopuses have".length * 64 * 0.6;
+    // Widest line (14 chars) at fontSize 52, ~0.6 advance ratio ≈ 437px of text.
+    const estimatedTextWidth = "Octopuses have".length * 52 * 0.6;
     expect(bandWidth).toBeGreaterThanOrEqual(estimatedTextWidth);
   });
 
@@ -114,18 +114,18 @@ describe("buildOverlaySvg", () => {
     const shortSvg = buildOverlaySvg({
       lines: ["Octopuses have", "three hearts"],
     });
-    // A short fact keeps the default 64px font.
-    expect(fontSize(shortSvg)).toBe(64);
+    // A short fact keeps the default 52px font.
+    expect(fontSize(shortSvg)).toBe(52);
 
     // A long fact (many wrapped lines) exceeds the height cap and is scaled down.
     const longLines = Array.from({ length: 14 }, (_, i) => `fact line ${i}`);
     const longSvg = buildOverlaySvg({ lines: longLines });
-    expect(fontSize(longSvg)).toBeLessThan(64);
+    expect(fontSize(longSvg)).toBeLessThan(52);
 
     // The scaled fact band is far shorter than the unscaled block would be and
     // stays near the height cap (~42% of the frame, plus band padding).
     const bandHeight = Number(longSvg.match(/<rect [^>]*height="(\d+)"/)![1]);
-    expect(bandHeight).toBeLessThan(longLines.length * 84);
+    expect(bandHeight).toBeLessThan(longLines.length * 70);
     expect(bandHeight).toBeLessThanOrEqual(
       Math.round(HEIGHT * 0.42) + 2 * 48 + 16,
     );
@@ -159,5 +159,23 @@ describe("buildOverlaySvg", () => {
     const factY = Number(rects[1][1]);
     // The fact band starts at or below the bottom of the hook band — no overlap.
     expect(factY).toBeGreaterThanOrEqual(hookY + hookH);
+  });
+
+  it("splits the hook to the top and the fact to the bottom, leaving an open middle", () => {
+    const hookLines = ["Why do octopuses", "never faint?"];
+    const lines = ["Octopuses have", "three hearts"];
+    const svg = buildOverlaySvg({ hookLines, lines });
+
+    const rects = [...svg.matchAll(/<rect [^>]*y="(\d+)"[^>]*height="(\d+)"/g)];
+    expect(rects.length).toBe(2);
+    const [hookY, hookH] = [Number(rects[0][1]), Number(rects[0][2])];
+    const factY = Number(rects[1][1]);
+
+    // Hook band sits in the upper portion of the frame.
+    expect(hookY + hookH).toBeLessThan(HEIGHT / 2);
+    // Fact band sits in the lower portion of the frame.
+    expect(factY).toBeGreaterThan(HEIGHT / 2);
+    // A clear gap (visible photo) is left between the two bands.
+    expect(factY - (hookY + hookH)).toBeGreaterThan(0);
   });
 });
