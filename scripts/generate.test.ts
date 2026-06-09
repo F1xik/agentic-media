@@ -17,6 +17,9 @@ vi.mock("./lib/musicAssets.ts", () => ({
 vi.mock("./lib/producer.ts", () => ({
   produceReviewedSpec: vi.fn(),
 }));
+vi.mock("./lib/trendingTopic.ts", () => ({
+  pickTrendingTopic: vi.fn(),
+}));
 vi.mock("./lib/backgroundImage.ts", () => ({
   fetchBestBackground: vi.fn(),
   CANDIDATE_COUNT: 3,
@@ -41,6 +44,7 @@ import {
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution } from "./lib/musicAssets.ts";
 import { produceReviewedSpec } from "./lib/producer.ts";
+import { pickTrendingTopic } from "./lib/trendingTopic.ts";
 import { fetchBestBackground } from "./lib/backgroundImage.ts";
 import { compositeFrame, renderVideo } from "./lib/render.ts";
 import { readFile, writeFile } from "node:fs/promises";
@@ -57,6 +61,10 @@ const spec = {
 function happyPath() {
   vi.mocked(insertVideo).mockResolvedValue({ id: "vid-1" });
   vi.mocked(recentTopics).mockResolvedValue(["space"]);
+  vi.mocked(pickTrendingTopic).mockResolvedValue({
+    topic: "Olympic swimming",
+    rationale: "the games are on",
+  });
   vi.mocked(parseCredits).mockReturnValue([
     {
       id: "carefree",
@@ -102,8 +110,15 @@ describe("generate", () => {
     expect(produceReviewedSpec).toHaveBeenCalledWith({
       avoidTopics: ["space"],
       validMusicIds: ["carefree"],
+      trendingTopic: "Olympic swimming",
       onRound: expect.any(Function),
     });
+    expect(appendLog).toHaveBeenCalledWith(
+      "vid-1",
+      "trending",
+      "info",
+      expect.stringContaining("Olympic swimming"),
+    );
     expect(appendLog).toHaveBeenCalledWith(
       "vid-1",
       "evaluate",
@@ -148,6 +163,32 @@ describe("generate", () => {
       "warn",
       expect.stringContaining("fallback"),
     );
+  });
+
+  it("falls back to a free-choice topic when no trend is available", async () => {
+    happyPath();
+    vi.mocked(pickTrendingTopic).mockResolvedValue(null);
+
+    const id = await generate();
+
+    expect(id).toBe("vid-1");
+    expect(produceReviewedSpec).toHaveBeenCalledWith({
+      avoidTopics: ["space"],
+      validMusicIds: ["carefree"],
+      trendingTopic: undefined,
+      onRound: expect.any(Function),
+    });
+    expect(appendLog).toHaveBeenCalledWith(
+      "vid-1",
+      "trending",
+      "warn",
+      expect.stringContaining("unavailable"),
+    );
+    // The pipeline still completes despite the trending miss.
+    expect(updateVideo).toHaveBeenCalledWith("vid-1", {
+      status: "pending_review",
+      video_path: "vid-1.mp4",
+    });
   });
 
   it("marks the row failed when the evaluator loop is exhausted", async () => {

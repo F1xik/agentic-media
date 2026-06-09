@@ -63,6 +63,22 @@ describe("produceReviewedSpec", () => {
     });
   });
 
+  it("anchors every attempt to the trending topic", async () => {
+    vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
+    vi.mocked(evaluateSpec)
+      .mockResolvedValueOnce({ approved: false, issues: ["too bland"] })
+      .mockResolvedValueOnce({ approved: true, issues: [] });
+
+    await produceReviewedSpec({ ...opts, trendingTopic: "Olympic swimming" });
+
+    expect(vi.mocked(requestGenerationSpec).mock.calls[0][0]).toMatchObject({
+      trendingTopic: "Olympic swimming",
+    });
+    expect(vi.mocked(requestGenerationSpec).mock.calls[1][0]).toMatchObject({
+      trendingTopic: "Olympic swimming",
+    });
+  });
+
   it("throws with the issues once attempts are exhausted", async () => {
     vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
     vi.mocked(evaluateSpec).mockResolvedValue({

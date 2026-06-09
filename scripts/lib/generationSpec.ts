@@ -43,6 +43,7 @@ export function buildPrompt(
   avoidTopics: string[],
   musicIds: string[],
   feedback: string[] = [],
+  trendingTopic?: string,
 ): string {
   const avoid =
     avoidTopics.length > 0
@@ -51,6 +52,15 @@ export function buildPrompt(
 
   const lines = [
     "You are scripting a faceless YouTube Shorts channel of surprising, true fun facts.",
+  ];
+
+  if (trendingTopic) {
+    lines.push(
+      `Anchor this around the currently-trending subject area "${trendingTopic}": find a SURPRISING, VERIFIABLE, evergreen fun fact connected to it. Do NOT report breaking news or anything hard to fact-check — the fact itself must be timeless and checkable.`,
+    );
+  }
+
+  lines.push(
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     "Schema:",
     '{"topic": string, "hook": string, "fact_text": string, "image_query": string, "image_prompt": string, "music": string}',
@@ -60,7 +70,7 @@ export function buildPrompt(
     `- image_query: 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the single main physical subject to photograph, exactly as you would type into a stock-photo search (e.g. "pistol shrimp", "snow leopard", "lightning storm"). Use the most specific, photographable noun for the subject of the fact — NOT the abstract topic area, NOT a full sentence, no adjectives of mood/lighting, no punctuation, no articles.`,
     "- image_prompt: a vivid description of that same subject for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes. This describes the desired shot for judging visual fit; it is NOT used as the search query.",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
-  ];
+  );
 
   if (feedback.length > 0) {
     lines.push(
@@ -167,6 +177,8 @@ export type RequestOptions = {
   validMusicIds: string[];
   /** Evaluator critique from a prior rejected attempt, fed back into the prompt. */
   feedback?: string[];
+  /** Currently-trending subject area to anchor the fact around, if any. */
+  trendingTopic?: string;
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
   run?: CommandRunner;
 };
@@ -179,9 +191,15 @@ export async function requestGenerationSpec({
   avoidTopics,
   validMusicIds,
   feedback = [],
+  trendingTopic,
   run = defaultRunner,
 }: RequestOptions): Promise<GenerationSpec> {
-  const prompt = buildPrompt(avoidTopics, validMusicIds, feedback);
+  const prompt = buildPrompt(
+    avoidTopics,
+    validMusicIds,
+    feedback,
+    trendingTopic,
+  );
   const stdout = await run("claude", [
     "-p",
     prompt,
