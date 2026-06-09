@@ -69,6 +69,11 @@ const BAND_PADDING = 48;
 /** Minimum vertical gap between the hook band and the fact band below it. */
 const BLOCK_GAP = 24;
 
+/** Fraction of the frame height left as a margin below the fact band, mirroring
+ *  the hook's top inset. Splitting the blocks to the top and bottom edges leaves
+ *  the middle of the photo visible. */
+const BOTTOM_MARGIN_RATIO = 0.14;
+
 /** Approximate advance width of an Arial Bold glyph as a fraction of the font
  *  size. Used to size the band to the text; a slight overestimate so the band
  *  never clips a wide line. */
@@ -154,20 +159,20 @@ function renderBlock({
 const FACT_MAX_HEIGHT_RATIO = 0.42;
 
 /**
- * Build a full-frame SVG that composites the fact text (vertically centered)
- * and, when provided, a larger accent-coloured hook near the top — each behind
- * its own semi-transparent contrast band. Returned as a UTF-8 SVG string for
- * sharp to composite over the background.
+ * Build a full-frame SVG that composites the fact text (anchored near the
+ * bottom) and, when provided, a larger accent-coloured hook near the top — each
+ * behind its own semi-transparent contrast band, bookending an open middle.
+ * Returned as a UTF-8 SVG string for sharp to composite over the background.
  */
 export function buildOverlaySvg({
   lines,
   hookLines = [],
   width = WIDTH,
   height = HEIGHT,
-  fontSize = 64,
-  lineHeight = 84,
-  hookFontSize = 76,
-  hookLineHeight = 96,
+  fontSize = 52,
+  lineHeight = 70,
+  hookFontSize = 60,
+  hookLineHeight = 78,
 }: OverlayOptions): string {
   // Cap the fact block's height: a long fact scales its font (and line height)
   // down proportionally so its band never blankets the middle of the frame.
@@ -190,11 +195,14 @@ export function buildOverlaySvg({
     fill: "#ffe14d",
   });
 
-  // Fact block: vertically centered, but never overlapping the hook band — a
-  // long hook + long fact would otherwise let the fact's contrast band paint
-  // over (and mute) the last hook line. Clamp the fact below the hook band.
-  const centeredTop = Math.round((height - lines.length * factLineHeight) / 2);
-  let factTop = centeredTop;
+  // Fact block: anchored near the bottom of the frame so the hook (top) and the
+  // fact (bottom) bookend a clear band of the photo in the middle. Its band's
+  // bottom edge lands at the bottom margin; the block top is derived from there.
+  const factBlockHeight = lines.length * factLineHeight;
+  const factBandBottom = Math.round(height * (1 - BOTTOM_MARGIN_RATIO));
+  let factTop = factBandBottom - BAND_PADDING - factBlockHeight;
+  // Safety clamp: a pathologically long hook + fact must still never overlap —
+  // keep the fact band below the hook band even if it pushes past the anchor.
   if (hookLines.length > 0) {
     const { bandY, bandHeight } = bandGeometry(
       hookTop,
@@ -205,7 +213,7 @@ export function buildOverlaySvg({
       height,
     );
     const minFactTop = bandY + bandHeight + BAND_PADDING + BLOCK_GAP;
-    factTop = Math.max(centeredTop, minFactTop);
+    factTop = Math.max(factTop, minFactTop);
   }
   const fact = renderBlock({
     lines,
