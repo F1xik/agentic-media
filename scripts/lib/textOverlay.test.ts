@@ -74,6 +74,63 @@ describe("buildOverlaySvg", () => {
     expect(svg.match(/<text /g)?.length).toBe(hookLines.length + lines.length);
   });
 
+  it("fits the band to the text instead of spanning the full frame width", () => {
+    const lines = ["Octopuses have", "three hearts"];
+    const svg = buildOverlaySvg({ lines });
+
+    const rect = svg.match(
+      /<rect x="(\d+)"[^>]*width="(\d+)"[^>]*rx="(\d+)" ry="(\d+)"/,
+    );
+    expect(rect).not.toBeNull();
+    const [bandX, bandWidth, rx, ry] = [
+      Number(rect![1]),
+      Number(rect![2]),
+      Number(rect![3]),
+      Number(rect![4]),
+    ];
+    // Narrower than the frame and inset from the left edge.
+    expect(bandWidth).toBeLessThan(WIDTH);
+    expect(bandX).toBeGreaterThan(0);
+    // Horizontally centered: left margin equals the right margin.
+    expect(bandX).toBe(Math.round((WIDTH - bandWidth) / 2));
+    // Rounded corners.
+    expect(rx).toBeGreaterThan(0);
+    expect(ry).toBeGreaterThan(0);
+  });
+
+  it("sizes the band wide enough not to clip the longest line", () => {
+    const lines = ["Octopuses have", "three hearts"];
+    const svg = buildOverlaySvg({ lines });
+    const bandWidth = Number(svg.match(/<rect [^>]*width="(\d+)"/)![1]);
+    // Widest line (14 chars) at fontSize 64, ~0.6 advance ratio ≈ 538px of text.
+    const estimatedTextWidth = "Octopuses have".length * 64 * 0.6;
+    expect(bandWidth).toBeGreaterThanOrEqual(estimatedTextWidth);
+  });
+
+  it("scales the fact font down when the fact is too tall, but not for short facts", () => {
+    const fontSize = (svg: string) =>
+      Number(svg.match(/<text [^>]*font-size="(\d+)"/)![1]);
+
+    const shortSvg = buildOverlaySvg({
+      lines: ["Octopuses have", "three hearts"],
+    });
+    // A short fact keeps the default 64px font.
+    expect(fontSize(shortSvg)).toBe(64);
+
+    // A long fact (many wrapped lines) exceeds the height cap and is scaled down.
+    const longLines = Array.from({ length: 14 }, (_, i) => `fact line ${i}`);
+    const longSvg = buildOverlaySvg({ lines: longLines });
+    expect(fontSize(longSvg)).toBeLessThan(64);
+
+    // The scaled fact band is far shorter than the unscaled block would be and
+    // stays near the height cap (~42% of the frame, plus band padding).
+    const bandHeight = Number(longSvg.match(/<rect [^>]*height="(\d+)"/)![1]);
+    expect(bandHeight).toBeLessThan(longLines.length * 84);
+    expect(bandHeight).toBeLessThanOrEqual(
+      Math.round(HEIGHT * 0.42) + 2 * 48 + 16,
+    );
+  });
+
   it("keeps the fact band clear of the hook band for a long hook + long fact", () => {
     // A 4-line hook and an 8-line fact: centering the fact would otherwise pull
     // its band up over the last hook line and mute it.

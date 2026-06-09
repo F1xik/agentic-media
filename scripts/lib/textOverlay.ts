@@ -69,21 +69,44 @@ const BAND_PADDING = 48;
 /** Minimum vertical gap between the hook band and the fact band below it. */
 const BLOCK_GAP = 24;
 
+/** Approximate advance width of an Arial Bold glyph as a fraction of the font
+ *  size. Used to size the band to the text; a slight overestimate so the band
+ *  never clips a wide line. */
+const CHAR_WIDTH_RATIO = 0.6;
+
+/** Corner radius of the contrast band so the fitted band reads as a caption
+ *  pill rather than a hard-edged bar. */
+const BAND_CORNER_RADIUS = 24;
+
+/** Estimated rendered width of the widest line in a block (in px). */
+function maxLineWidth(lines: string[], fontSize: number): number {
+  const longest = lines.reduce((n, l) => Math.max(n, l.length), 0);
+  return longest * fontSize * CHAR_WIDTH_RATIO;
+}
+
 /**
- * Geometry of the contrast band drawn behind a text block: where it starts and
- * how tall it is. Shared by `renderBlock` (to draw the band) and the layout in
- * `buildOverlaySvg` (to keep blocks from overlapping).
+ * Geometry of the contrast band drawn behind a text block: where it starts, how
+ * wide, and how tall. The band hugs the text — its width is the widest line plus
+ * padding (centered, never wider than the frame) — so it covers only what the
+ * text needs and leaves the rest of the photo visible. Shared by `renderBlock`
+ * (to draw the band) and `buildOverlaySvg` (to keep blocks from overlapping).
  */
 function bandGeometry(
   blockTop: number,
-  lineCount: number,
+  lines: string[],
+  fontSize: number,
   lineHeight: number,
+  width: number,
   height: number,
-): { bandY: number; bandHeight: number } {
-  const blockHeight = lineCount * lineHeight;
+): { bandX: number; bandY: number; bandWidth: number; bandHeight: number } {
+  const blockHeight = lines.length * lineHeight;
   const bandY = Math.max(0, blockTop - BAND_PADDING);
   const bandHeight = Math.min(height - bandY, blockHeight + BAND_PADDING * 2);
-  return { bandY, bandHeight };
+  const bandWidth = Math.round(
+    Math.min(width, maxLineWidth(lines, fontSize) + BAND_PADDING * 2),
+  );
+  const bandX = Math.max(0, Math.round((width - bandWidth) / 2));
+  return { bandX, bandY, bandWidth, bandHeight };
 }
 
 /**
@@ -101,10 +124,12 @@ function renderBlock({
 }: BlockOptions): string {
   if (lines.length === 0) return "";
 
-  const { bandY, bandHeight } = bandGeometry(
+  const { bandX, bandY, bandWidth, bandHeight } = bandGeometry(
     blockTop,
-    lines.length,
+    lines,
+    fontSize,
     lineHeight,
+    width,
     height,
   );
   // Baseline of the first line (text anchored at its baseline in SVG).
@@ -119,9 +144,14 @@ function renderBlock({
     })
     .join("");
 
-  return `<rect x="0" y="${bandY}" width="${width}" height="${bandHeight}" fill="#000000" fill-opacity="0.5"/>
+  return `<rect x="${bandX}" y="${bandY}" width="${bandWidth}" height="${bandHeight}" rx="${BAND_CORNER_RADIUS}" ry="${BAND_CORNER_RADIUS}" fill="#000000" fill-opacity="0.5"/>
   ${tspans}`;
 }
+
+/** Fraction of the frame height the fact block may occupy before its font is
+ *  scaled down. A long fact would otherwise grow a band that blankets the
+ *  middle of the frame; capping the height keeps more of the photo visible. */
+const FACT_MAX_HEIGHT_RATIO = 0.42;
 
 /**
  * Build a full-frame SVG that composites the fact text (vertically centered)
@@ -139,6 +169,15 @@ export function buildOverlaySvg({
   hookFontSize = 76,
   hookLineHeight = 96,
 }: OverlayOptions): string {
+  // Cap the fact block's height: a long fact scales its font (and line height)
+  // down proportionally so its band never blankets the middle of the frame.
+  const maxFactHeight = height * FACT_MAX_HEIGHT_RATIO;
+  const naturalFactHeight = lines.length * lineHeight;
+  const factScale =
+    naturalFactHeight > maxFactHeight ? maxFactHeight / naturalFactHeight : 1;
+  const factFontSize = Math.round(fontSize * factScale);
+  const factLineHeight = Math.round(lineHeight * factScale);
+
   // Hook block: anchored in the upper portion of the frame, in an accent colour.
   const hookTop = Math.round(height * 0.14);
   const hook = renderBlock({
@@ -154,13 +193,15 @@ export function buildOverlaySvg({
   // Fact block: vertically centered, but never overlapping the hook band — a
   // long hook + long fact would otherwise let the fact's contrast band paint
   // over (and mute) the last hook line. Clamp the fact below the hook band.
-  const centeredTop = Math.round((height - lines.length * lineHeight) / 2);
+  const centeredTop = Math.round((height - lines.length * factLineHeight) / 2);
   let factTop = centeredTop;
   if (hookLines.length > 0) {
     const { bandY, bandHeight } = bandGeometry(
       hookTop,
-      hookLines.length,
+      hookLines,
+      hookFontSize,
       hookLineHeight,
+      width,
       height,
     );
     const minFactTop = bandY + bandHeight + BAND_PADDING + BLOCK_GAP;
@@ -170,8 +211,8 @@ export function buildOverlaySvg({
     lines,
     width,
     blockTop: factTop,
-    fontSize,
-    lineHeight,
+    fontSize: factFontSize,
+    lineHeight: factLineHeight,
     height,
   });
 
