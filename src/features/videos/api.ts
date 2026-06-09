@@ -49,6 +49,19 @@ export async function getSignedVideoUrl(videoPath: string): Promise<string> {
   return data.signedUrl;
 }
 
+// Signed URL with a Content-Disposition: attachment response, so the browser
+// saves the file instead of navigating to it (the <a download> attribute is
+// ignored for cross-origin URLs).
+export async function getSignedVideoDownloadUrl(
+  videoPath: string,
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("videos")
+    .createSignedUrl(videoPath, 3600, { download: videoPath });
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export async function approveVideo(id: string): Promise<void> {
   const { error } = await supabase
     .from("videos")
