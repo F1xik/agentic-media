@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getVideos,
   getSignedVideoUrl,
+  getSignedVideoDownloadUrl,
   approveVideo,
   rejectVideo,
   triggerGenerate,
@@ -84,6 +85,35 @@ describe("getSignedVideoUrl", () => {
     });
 
     await expect(getSignedVideoUrl("abc.mp4")).rejects.toThrow("storage error");
+  });
+});
+
+describe("getSignedVideoDownloadUrl", () => {
+  it("requests a signed URL with the download disposition", async () => {
+    const createSignedUrl = vi.fn().mockResolvedValue({
+      data: { signedUrl: "https://signed-download" },
+      error: null,
+    });
+    mockStorageFrom.mockReturnValue({ createSignedUrl });
+
+    const url = await getSignedVideoDownloadUrl("abc.mp4");
+    expect(url).toBe("https://signed-download");
+    expect(mockStorageFrom).toHaveBeenCalledWith("videos");
+    expect(createSignedUrl).toHaveBeenCalledWith("abc.mp4", 3600, {
+      download: "abc.mp4",
+    });
+  });
+
+  it("throws on storage error", async () => {
+    mockStorageFrom.mockReturnValue({
+      createSignedUrl: vi
+        .fn()
+        .mockResolvedValue({ data: null, error: new Error("storage error") }),
+    });
+
+    await expect(getSignedVideoDownloadUrl("abc.mp4")).rejects.toThrow(
+      "storage error",
+    );
   });
 });
 

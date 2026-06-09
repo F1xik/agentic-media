@@ -9,6 +9,7 @@ vi.mock("../../lib/supabase", () => ({
 
 vi.mock("./useVideos", () => ({
   useSignedVideoUrl: () => ({ data: "https://signed", isLoading: false }),
+  useSignedVideoDownloadUrl: () => ({ data: "https://signed-download" }),
 }));
 
 const mockApprove = vi.fn();
@@ -75,5 +76,18 @@ describe("VideoCard", () => {
     render(<VideoCard video={baseVideo} />);
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
     expect(mockReject).toHaveBeenCalledWith("vid-1");
+  });
+
+  it("shows a Download link pointing at the signed download URL", () => {
+    render(<VideoCard video={baseVideo} />);
+    const link = screen.getByRole("link", { name: "Download" });
+    expect(link).toHaveAttribute("href", "https://signed-download");
+  });
+
+  it("does not show a Download link when there is no video_path", () => {
+    render(<VideoCard video={{ ...baseVideo, video_path: null }} />);
+    expect(
+      screen.queryByRole("link", { name: "Download" }),
+    ).not.toBeInTheDocument();
   });
 });

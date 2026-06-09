@@ -1,5 +1,5 @@
 import { type Video } from "./api";
-import { useSignedVideoUrl } from "./useVideos";
+import { useSignedVideoUrl, useSignedVideoDownloadUrl } from "./useVideos";
 import { useApproveVideo, useRejectVideo } from "./useApproveVideo";
 
 interface Props {
@@ -10,6 +10,7 @@ export function VideoCard({ video }: Props) {
   const { data: signedUrl, isLoading: urlLoading } = useSignedVideoUrl(
     video.video_path,
   );
+  const { data: downloadUrl } = useSignedVideoDownloadUrl(video.video_path);
   const approve = useApproveVideo();
   const reject = useRejectVideo();
   const isPending = approve.isPending || reject.isPending;
@@ -60,6 +61,19 @@ export function VideoCard({ video }: Props) {
           <p className="rounded bg-red-50 px-2 py-1 text-xs text-red-600">
             {video.error}
           </p>
+        )}
+
+        {video.video_path && (
+          <a
+            href={downloadUrl ?? undefined}
+            download
+            aria-disabled={!downloadUrl}
+            className={`inline-block rounded bg-blue-600 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-blue-700 ${
+              downloadUrl ? "" : "pointer-events-none opacity-50"
+            }`}
+          >
+            Download
+          </a>
         )}
 
         {video.status === "pending_review" && (
