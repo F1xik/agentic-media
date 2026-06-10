@@ -102,6 +102,29 @@ describe("produceReviewedSpec", () => {
     });
   });
 
+  it("forwards the facts to avoid to both the producer and the evaluator on every attempt", async () => {
+    vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
+    vi.mocked(evaluateSpec)
+      .mockResolvedValueOnce({ approved: false, issues: ["duplicate fact"] })
+      .mockResolvedValueOnce({ approved: true, issues: [] });
+    const avoidFacts = ["Honey never spoils.", "Bananas are berries."];
+
+    await produceReviewedSpec({ ...opts, avoidFacts });
+
+    expect(vi.mocked(requestGenerationSpec).mock.calls[0][0]).toMatchObject({
+      avoidFacts,
+    });
+    expect(vi.mocked(requestGenerationSpec).mock.calls[1][0]).toMatchObject({
+      avoidFacts,
+    });
+    expect(vi.mocked(evaluateSpec).mock.calls[0][0]).toMatchObject({
+      avoidFacts,
+    });
+    expect(vi.mocked(evaluateSpec).mock.calls[1][0]).toMatchObject({
+      avoidFacts,
+    });
+  });
+
   it("throws with the issues once attempts are exhausted", async () => {
     vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
     vi.mocked(evaluateSpec).mockResolvedValue({

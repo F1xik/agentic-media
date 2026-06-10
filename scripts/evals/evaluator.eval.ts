@@ -70,4 +70,16 @@ describe("evaluator", () => {
     const verdict = await evaluateSpec({ spec, validMusicIds: MUSIC });
     expect(verdict.approved).toBe(false);
   });
+
+  it("rejects a fact that duplicates a recently-used one", async () => {
+    const verdict = await evaluateSpec({
+      spec: goodSpec,
+      validMusicIds: MUSIC,
+      avoidFacts: [
+        "Wombats produce cube-shaped poop because of how their intestines stretch.",
+      ],
+    });
+    expect(verdict.approved).toBe(false);
+    expect(verdict.issues.length).toBeGreaterThan(0);
+  });
 });

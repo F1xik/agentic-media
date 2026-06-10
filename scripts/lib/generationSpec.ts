@@ -53,6 +53,7 @@ export function buildPrompt(
   feedback: string[] = [],
   trendingTopic?: string,
   requestedTopic?: string,
+  avoidFacts: string[] = [],
 ): string {
   const avoid =
     avoidTopics.length > 0
@@ -84,6 +85,13 @@ export function buildPrompt(
     "- image_prompt: a vivid description of that same subject for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes. This describes the desired shot for judging visual fit; it is NOT used as the search query.",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
   );
+
+  if (avoidFacts.length > 0) {
+    lines.push(
+      "Your fact must be NEW. Do NOT repeat or paraphrase any of these recently-used facts — pick a genuinely different subject and claim:",
+      ...avoidFacts.map((fact) => `- ${fact}`),
+    );
+  }
 
   if (feedback.length > 0) {
     lines.push(
@@ -206,6 +214,9 @@ export type RequestOptions = {
   /** Explicit subject requested by the user in the dashboard; takes precedence
    *  over `trendingTopic`. */
   requestedTopic?: string;
+  /** Recently-used fact texts the new fact must differ from, listed in the
+   *  prompt so the producer avoids duplicates up front. */
+  avoidFacts?: string[];
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
   run?: CommandRunner;
 };
@@ -220,6 +231,7 @@ export async function requestGenerationSpec({
   feedback = [],
   trendingTopic,
   requestedTopic,
+  avoidFacts = [],
   run = defaultRunner,
 }: RequestOptions): Promise<GenerationSpec> {
   const prompt = buildPrompt(
@@ -228,6 +240,7 @@ export async function requestGenerationSpec({
     feedback,
     trendingTopic,
     requestedTopic,
+    avoidFacts,
   );
   const stdout = await run("claude", [
     "-p",

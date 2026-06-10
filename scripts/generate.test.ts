@@ -7,6 +7,7 @@ vi.mock("./lib/supabaseAdmin.ts", () => ({
   appendLog: vi.fn(),
   uploadVideo: vi.fn(),
   recentTopics: vi.fn(),
+  recentFacts: vi.fn(),
   bumpTopic: vi.fn(),
 }));
 vi.mock("./lib/musicAssets.ts", () => ({
@@ -40,6 +41,7 @@ import {
   appendLog,
   uploadVideo,
   recentTopics,
+  recentFacts,
   bumpTopic,
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution } from "./lib/musicAssets.ts";
@@ -61,6 +63,7 @@ const spec = {
 function happyPath() {
   vi.mocked(insertVideo).mockResolvedValue({ id: "vid-1" });
   vi.mocked(recentTopics).mockResolvedValue(["space"]);
+  vi.mocked(recentFacts).mockResolvedValue(["Honey never spoils."]);
   vi.mocked(pickTrendingTopic).mockResolvedValue({
     topic: "Olympic swimming",
     rationale: "the games are on",
@@ -111,6 +114,7 @@ describe("generate", () => {
       avoidTopics: ["space"],
       validMusicIds: ["carefree"],
       trendingTopic: "Olympic swimming",
+      avoidFacts: ["Honey never spoils."],
       onRound: expect.any(Function),
       onInvalid: expect.any(Function),
     });
@@ -201,6 +205,7 @@ describe("generate", () => {
       avoidTopics: ["space"],
       validMusicIds: ["carefree"],
       trendingTopic: undefined,
+      avoidFacts: ["Honey never spoils."],
       onRound: expect.any(Function),
       onInvalid: expect.any(Function),
     });

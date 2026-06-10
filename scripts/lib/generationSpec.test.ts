@@ -97,6 +97,23 @@ describe("buildPrompt", () => {
       "A previous attempt was rejected",
     );
   });
+
+  it("lists the recently-used facts to avoid when provided", () => {
+    const prompt = buildPrompt([], MUSIC, [], undefined, undefined, [
+      "Octopuses have three hearts.",
+      "Honey never spoils.",
+    ]);
+    expect(prompt).toContain("Your fact must be NEW");
+    expect(prompt).toContain("- Octopuses have three hearts.");
+    expect(prompt).toContain("- Honey never spoils.");
+  });
+
+  it("omits the avoid-facts block when no facts are provided", () => {
+    expect(buildPrompt([], MUSIC)).not.toContain("Your fact must be NEW");
+    expect(buildPrompt([], MUSIC, [], undefined, undefined, [])).not.toContain(
+      "Your fact must be NEW",
+    );
+  });
 });
 
 describe("parseGenerationSpec", () => {
@@ -285,5 +302,18 @@ describe("requestGenerationSpec", () => {
       "--output-format",
       "json",
     ]);
+  });
+
+  it("forwards the facts to avoid into the prompt", async () => {
+    const run = vi.fn().mockResolvedValue(JSON.stringify(validSpec));
+    await requestGenerationSpec({
+      avoidTopics: [],
+      validMusicIds: MUSIC,
+      avoidFacts: ["Honey never spoils."],
+      run,
+    });
+    const prompt = run.mock.calls[0][1][1];
+    expect(prompt).toContain("Your fact must be NEW");
+    expect(prompt).toContain("- Honey never spoils.");
   });
 });

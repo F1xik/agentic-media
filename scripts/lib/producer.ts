@@ -31,6 +31,9 @@ export type ProduceOptions = {
    *  over `trendingTopic`; the evaluator stays subject-agnostic, so a user
    *  request can't lower the accuracy bar either. */
   requestedTopic?: string;
+  /** Recently-used facts the new fact must differ from. Passed to the producer
+   *  (to avoid duplicates up front) and the evaluator (to reject overlaps). */
+  avoidFacts?: string[];
   /** Maximum produce→evaluate rounds before giving up (default `MAX_ATTEMPTS`). */
   maxAttempts?: number;
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
@@ -59,6 +62,7 @@ export async function produceReviewedSpec({
   validMusicIds,
   trendingTopic,
   requestedTopic,
+  avoidFacts = [],
   maxAttempts = MAX_ATTEMPTS,
   run,
   onRound,
@@ -75,6 +79,7 @@ export async function produceReviewedSpec({
         feedback,
         trendingTopic,
         requestedTopic,
+        avoidFacts,
         run,
       });
     } catch (err) {
@@ -88,7 +93,12 @@ export async function produceReviewedSpec({
       ];
       continue;
     }
-    const verdict = await evaluateSpec({ spec, validMusicIds, run });
+    const verdict = await evaluateSpec({
+      spec,
+      validMusicIds,
+      avoidFacts,
+      run,
+    });
 
     await onRound?.({ attempt, spec, verdict });
 

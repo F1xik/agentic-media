@@ -29,6 +29,7 @@ import {
   listExpiredVideos,
   getVideo,
   recentTopics,
+  recentFacts,
   bumpTopic,
 } from "./supabaseAdmin.ts";
 
@@ -234,6 +235,53 @@ describe("recentTopics", () => {
       }),
     });
     await expect(recentTopics()).rejects.toThrow("topics error");
+  });
+});
+
+describe("recentFacts", () => {
+  it("returns non-null fact texts newest first", async () => {
+    const mockLimit = vi.fn().mockResolvedValue({
+      data: [{ fact_text: "fact b" }, { fact_text: "fact a" }],
+      error: null,
+    });
+    const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockNot = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockSelect = vi.fn().mockReturnValue({ not: mockNot });
+    mockFrom.mockReturnValue({ select: mockSelect });
+
+    const facts = await recentFacts(5);
+    expect(mockFrom).toHaveBeenCalledWith("videos");
+    expect(mockSelect).toHaveBeenCalledWith("fact_text");
+    expect(mockNot).toHaveBeenCalledWith("fact_text", "is", null);
+    expect(mockOrder).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(mockLimit).toHaveBeenCalledWith(5);
+    expect(facts).toEqual(["fact b", "fact a"]);
+  });
+
+  it("defaults to a limit of 10 and returns an empty array when there are no rows", async () => {
+    const mockLimit = vi.fn().mockResolvedValue({ data: null, error: null });
+    const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockNot = vi.fn().mockReturnValue({ order: mockOrder });
+    mockFrom.mockReturnValue({ select: () => ({ not: mockNot }) });
+
+    expect(await recentFacts()).toEqual([]);
+    expect(mockLimit).toHaveBeenCalledWith(10);
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        not: () => ({
+          order: () => ({
+            limit: vi.fn().mockResolvedValue({
+              data: null,
+              error: new Error("facts error"),
+            }),
+          }),
+        }),
+      }),
+    });
+    await expect(recentFacts()).rejects.toThrow("facts error");
   });
 });
 
