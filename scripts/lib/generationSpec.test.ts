@@ -42,7 +42,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("image_query");
     expect(prompt).toContain("concrete nouns");
     expect(prompt).toContain("HARD LIMIT: 3 words maximum");
-    expect(prompt).toContain("surprising, verifiable, well-known");
+    expect(prompt).toContain("surprising, lesser-known, precisely-accurate");
     expect(prompt).toContain("curiosity-gap");
     expect(prompt).toContain(String(MAX_HOOK_LENGTH));
   });
