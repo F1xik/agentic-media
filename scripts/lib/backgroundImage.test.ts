@@ -145,13 +145,14 @@ describe("fetchBackground", () => {
 });
 
 describe("fetchBestBackground", () => {
-  it("defaults to fetching five candidates", () => {
-    expect(CANDIDATE_COUNT).toBe(5);
+  it("defaults to fetching three candidates", () => {
+    expect(CANDIDATE_COUNT).toBe(3);
   });
 
   it("fetches distinct candidates and returns the judge's pick", async () => {
-    // Search returns a duplicate id (1) which must be de-duplicated; only four
-    // distinct ids remain, fewer than the default CANDIDATE_COUNT of 5.
+    // Search returns a duplicate id (1) which must be de-duplicated; after
+    // dropping it the first three distinct ids (1, 2, 3) fill CANDIDATE_COUNT
+    // and id 4 is never reached.
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(pexelsSearchPhotos([1, 1, 2, 3, 4]))
@@ -175,15 +176,13 @@ describe("fetchBestBackground", () => {
     const searchUrl = fetchImpl.mock.calls[0][0] as string;
     expect(searchUrl).toContain("query=octopus");
     expect(searchUrl).not.toContain("deep");
-    // 1 search + 4 distinct downloads.
-    expect(fetchImpl).toHaveBeenCalledTimes(5);
-    // The judge sees the four distinct candidates (ids 1, 2, 3, 4)...
+    // 1 search + 3 distinct downloads.
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    // The judge sees the three distinct candidates (ids 1, 2, 3)...
     const arg = evaluate.mock.calls[0][0];
-    expect(arg.candidates.map((c: { id: number }) => c.id)).toEqual([
-      1, 2, 3, 4,
-    ]);
+    expect(arg.candidates.map((c: { id: number }) => c.id)).toEqual([1, 2, 3]);
     // ...along with one image buffer per candidate.
-    expect(arg.images).toHaveLength(4);
+    expect(arg.images).toHaveLength(3);
     expect(arg.images.every((b: unknown) => Buffer.isBuffer(b))).toBe(true);
   });
 

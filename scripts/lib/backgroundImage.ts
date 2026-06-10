@@ -146,10 +146,10 @@ export async function fetchBackground(
 }
 
 /** How many distinct candidate photos to fetch and evaluate. */
-export const CANDIDATE_COUNT = 5;
+export const CANDIDATE_COUNT = 3;
 
 export type FetchBestBackgroundOptions = FetchBackgroundOptions & {
-  /** Number of distinct candidates to fetch and evaluate (default 5). */
+  /** Number of distinct candidates to fetch and evaluate (default 3). */
   candidates?: number;
   /** Injectable evaluator for tests; defaults to the live Claude judge. */
   evaluate?: typeof evaluateImageCandidates;

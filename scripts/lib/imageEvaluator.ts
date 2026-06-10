@@ -27,8 +27,10 @@ const THUMB_HEIGHT = 640;
 /** Selecting the best image is a judgement task; use Sonnet 4.6. */
 export const IMAGE_EVAL_MODEL = "claude-sonnet-4-6";
 
-/** Reasoning effort for the image judge. Sonnet 4.6 accepts low|medium|high. */
-export const IMAGE_EVAL_EFFORT = "medium";
+/** Reasoning effort for the image judge. Sonnet 4.6 accepts low|medium|high.
+ *  Ranking stock photos is largely perceptual, so `low` keeps the vision-based
+ *  judgement while cutting thinking-token cost. */
+export const IMAGE_EVAL_EFFORT = "low";
 
 /** Metadata for one candidate photo, drawn from the Pexels search result. */
 export type Candidate = {

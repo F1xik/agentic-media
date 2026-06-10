@@ -14,9 +14,9 @@ import {
 } from "./imageEvaluator.ts";
 
 describe("model selection", () => {
-  it("judges with Sonnet 4.6 at medium effort", () => {
+  it("judges with Sonnet 4.6 at low effort", () => {
     expect(IMAGE_EVAL_MODEL).toBe("claude-sonnet-4-6");
-    expect(IMAGE_EVAL_EFFORT).toBe("medium");
+    expect(IMAGE_EVAL_EFFORT).toBe("low");
   });
 });
 
@@ -171,7 +171,7 @@ describe("evaluateImageCandidates", () => {
       "--model",
       "claude-sonnet-4-6",
       "--effort",
-      "medium",
+      "low",
       "--allowedTools",
       "Read",
       "--output-format",
