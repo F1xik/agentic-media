@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import {
+  SpecValidationError,
   buildPrompt,
   parseGenerationSpec,
   requestGenerationSpec,
@@ -40,6 +41,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("no text in the image");
     expect(prompt).toContain("image_query");
     expect(prompt).toContain("concrete nouns");
+    expect(prompt).toContain("HARD LIMIT: 3 words maximum");
     expect(prompt).toContain("surprising, verifiable, well-known");
     expect(prompt).toContain("curiosity-gap");
     expect(prompt).toContain(String(MAX_HOOK_LENGTH));
@@ -118,6 +120,7 @@ describe("parseGenerationSpec", () => {
       image_query: "a deep blue ocean with an octopus",
     });
     expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(/image_query/);
+    expect(() => parseGenerationSpec(raw, MUSIC)).toThrow(SpecValidationError);
   });
 
   it("rejects a missing image_query", () => {
@@ -139,6 +142,32 @@ describe("parseGenerationSpec", () => {
     expect(() => parseGenerationSpec("nothing here", MUSIC)).toThrow(
       /no JSON object/,
     );
+    expect(() => parseGenerationSpec("nothing here", MUSIC)).toThrow(
+      SpecValidationError,
+    );
+  });
+
+  it("throws SpecValidationError on malformed JSON", () => {
+    expect(() => parseGenerationSpec("{not valid json}", MUSIC)).toThrow(
+      SpecValidationError,
+    );
+    expect(() => parseGenerationSpec("{not valid json}", MUSIC)).toThrow(
+      /invalid JSON/,
+    );
+  });
+
+  it("throws SpecValidationError for every field validation failure", () => {
+    const cases = [
+      { ...validSpec, fact_text: "x".repeat(MAX_FACT_LENGTH + 1) },
+      { ...validSpec, hook: "x".repeat(MAX_HOOK_LENGTH + 1) },
+      { ...validSpec, music: "techno" },
+      { ...validSpec, topic: "" },
+    ];
+    for (const bad of cases) {
+      expect(() => parseGenerationSpec(JSON.stringify(bad), MUSIC)).toThrow(
+        SpecValidationError,
+      );
+    }
   });
 });
 

@@ -112,6 +112,7 @@ describe("generate", () => {
       validMusicIds: ["carefree"],
       trendingTopic: "Olympic swimming",
       onRound: expect.any(Function),
+      onInvalid: expect.any(Function),
     });
     expect(appendLog).toHaveBeenCalledWith(
       "vid-1",
@@ -148,6 +149,30 @@ describe("generate", () => {
     );
   });
 
+  it("logs a warning when a produce attempt returns an invalid spec", async () => {
+    happyPath();
+    vi.mocked(produceReviewedSpec).mockImplementation(
+      async ({ onRound, onInvalid }) => {
+        await onInvalid?.({
+          attempt: 1,
+          error: new Error("generation spec: image_query is 4 words (max 3)"),
+        });
+        const verdict = { approved: true, issues: [] };
+        await onRound?.({ attempt: 2, spec, verdict });
+        return { spec, verdict, attempts: 2 };
+      },
+    );
+
+    await generate();
+
+    expect(appendLog).toHaveBeenCalledWith(
+      "vid-1",
+      "produce",
+      "warn",
+      "attempt 1 returned an invalid spec, retrying: generation spec: image_query is 4 words (max 3)",
+    );
+  });
+
   it("logs a warning when the image fallback is used", async () => {
     happyPath();
     vi.mocked(fetchBestBackground).mockResolvedValue({
@@ -177,6 +202,7 @@ describe("generate", () => {
       validMusicIds: ["carefree"],
       trendingTopic: undefined,
       onRound: expect.any(Function),
+      onInvalid: expect.any(Function),
     });
     expect(appendLog).toHaveBeenCalledWith(
       "vid-1",

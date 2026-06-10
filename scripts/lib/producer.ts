@@ -6,6 +6,7 @@
 import {
   type CommandRunner,
   type GenerationSpec,
+  SpecValidationError,
   requestGenerationSpec,
 } from "./generationSpec.ts";
 import { type Verdict, evaluateSpec } from "./specEvaluator.ts";
@@ -36,6 +37,12 @@ export type ProduceOptions = {
     spec: GenerationSpec;
     verdict: Verdict;
   }) => void | Promise<void>;
+  /** Invoked when an attempt's reply fails local parsing/validation and is
+   *  retried, e.g. to log the discarded round. */
+  onInvalid?: (round: {
+    attempt: number;
+    error: SpecValidationError;
+  }) => void | Promise<void>;
 };
 
 /**
@@ -50,17 +57,31 @@ export async function produceReviewedSpec({
   maxAttempts = MAX_ATTEMPTS,
   run,
   onRound,
+  onInvalid,
 }: ProduceOptions): Promise<ReviewedSpec> {
   let feedback: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const spec = await requestGenerationSpec({
-      avoidTopics,
-      validMusicIds,
-      feedback,
-      trendingTopic,
-      run,
-    });
+    let spec: GenerationSpec;
+    try {
+      spec = await requestGenerationSpec({
+        avoidTopics,
+        validMusicIds,
+        feedback,
+        trendingTopic,
+        run,
+      });
+    } catch (err) {
+      // A reply that fails local validation is just a bad sample: feed the
+      // error back and retry (consuming the attempt). Anything else — e.g.
+      // the CLI failing to spawn — is not the model's fault, so rethrow.
+      if (!(err instanceof SpecValidationError)) throw err;
+      await onInvalid?.({ attempt, error: err });
+      feedback = [
+        `Your previous reply was invalid and was rejected before review: ${err.message}. Reply again with ONE corrected JSON object.`,
+      ];
+      continue;
+    }
     const verdict = await evaluateSpec({ spec, validMusicIds, run });
 
     await onRound?.({ attempt, spec, verdict });

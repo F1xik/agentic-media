@@ -34,6 +34,10 @@ export type GenerationSpec = {
 /** A shell runner abstraction so the Claude call can be mocked in tests. */
 export type CommandRunner = (cmd: string, args: string[]) => Promise<string>;
 
+/** The model's reply failed local parsing/validation. Retryable with feedback,
+ *  unlike infrastructure errors (e.g. the `claude` CLI exiting non-zero). */
+export class SpecValidationError extends Error {}
+
 /**
  * Build the Claude prompt, biased away from recently-used topics. When a prior
  * attempt was rejected by the evaluator, its critique is passed as `feedback`
@@ -67,7 +71,7 @@ export function buildPrompt(
     `- topic: a short subject area (2-4 words). ${avoid}`,
     `- hook: a short curiosity-gap teaser or question (at most ${MAX_HOOK_LENGTH} characters, no hashtags) that makes the viewer want the answer. It must set up fact_text as the payoff and must NOT simply restate the fact or give the answer away.`,
     `- fact_text: ONE surprising, verifiable, well-known fact, at most ${MAX_FACT_LENGTH} characters. No hashtags.`,
-    `- image_query: 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the single main physical subject to photograph, exactly as you would type into a stock-photo search (e.g. "pistol shrimp", "snow leopard", "lightning storm"). Use the most specific, photographable noun for the subject of the fact — NOT the abstract topic area, NOT a full sentence, no adjectives of mood/lighting, no punctuation, no articles.`,
+    `- image_query: 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the single main physical subject to photograph, exactly as you would type into a stock-photo search (e.g. "pistol shrimp", "snow leopard", "lightning storm"). Use the most specific, photographable noun for the subject of the fact — NOT the abstract topic area, NOT a full sentence, no adjectives of mood/lighting, no punctuation, no articles. HARD LIMIT: ${MAX_IMAGE_QUERY_WORDS} words maximum — a longer query is rejected automatically, so drop the least important word rather than exceed it.`,
     "- image_prompt: a vivid description of that same subject for a vertical background image (no text in the image), featuring one clear, prominent subject filling the frame in close-up — avoid distant, aerial, or cluttered wide scenes. This describes the desired shot for judging visual fit; it is NOT used as the search query.",
     `- music: one of these track ids exactly: ${musicIds.join(", ")}.`,
   );
@@ -100,7 +104,8 @@ export const defaultRunner: CommandRunner = (cmd, args) =>
 /** Extract the first balanced `{…}` JSON object from arbitrary text. */
 export function extractJsonObject(text: string): string {
   const start = text.indexOf("{");
-  if (start === -1) throw new Error("no JSON object found in Claude output");
+  if (start === -1)
+    throw new SpecValidationError("no JSON object found in Claude output");
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -119,7 +124,7 @@ export function extractJsonObject(text: string): string {
       if (depth === 0) return text.slice(start, i + 1);
     }
   }
-  throw new Error("unterminated JSON object in Claude output");
+  throw new SpecValidationError("unterminated JSON object in Claude output");
 }
 
 /**
@@ -130,12 +135,22 @@ export function parseGenerationSpec(
   raw: string,
   validMusicIds: string[],
 ): GenerationSpec {
-  const obj = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>;
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>;
+  } catch (err) {
+    if (err instanceof SpecValidationError) throw err;
+    throw new SpecValidationError(
+      `invalid JSON in Claude output: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   const str = (key: keyof GenerationSpec): string => {
     const value = obj[key];
     if (typeof value !== "string" || value.trim() === "") {
-      throw new Error(`generation spec: "${key}" must be a non-empty string`);
+      throw new SpecValidationError(
+        `generation spec: "${key}" must be a non-empty string`,
+      );
     }
     return value.trim();
   };
@@ -148,23 +163,23 @@ export function parseGenerationSpec(
   const music = str("music").replace(/\.mp3$/i, "");
 
   if (hook.length > MAX_HOOK_LENGTH) {
-    throw new Error(
+    throw new SpecValidationError(
       `generation spec: hook is ${hook.length} chars (max ${MAX_HOOK_LENGTH})`,
     );
   }
   const queryWords = image_query.split(/\s+/).filter(Boolean).length;
   if (queryWords > MAX_IMAGE_QUERY_WORDS) {
-    throw new Error(
+    throw new SpecValidationError(
       `generation spec: image_query is ${queryWords} words (max ${MAX_IMAGE_QUERY_WORDS})`,
     );
   }
   if (fact_text.length > MAX_FACT_LENGTH) {
-    throw new Error(
+    throw new SpecValidationError(
       `generation spec: fact_text is ${fact_text.length} chars (max ${MAX_FACT_LENGTH})`,
     );
   }
   if (!validMusicIds.includes(music)) {
-    throw new Error(
+    throw new SpecValidationError(
       `generation spec: music "${music}" is not one of: ${validMusicIds.join(", ")}`,
     );
   }
