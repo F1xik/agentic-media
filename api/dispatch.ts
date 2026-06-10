@@ -24,6 +24,9 @@ const EVENT_TYPES: Record<DispatchEvent, string> = {
   publish: "publish_video",
 };
 
+/** Upper bound on the optional free-text topic, mirroring the UI input limit. */
+const MAX_TOPIC_LENGTH = 200;
+
 function header(
   headers: DispatchRequest["headers"],
   name: string,
@@ -100,7 +103,11 @@ export default async function handler(
   }
 
   // ── validate payload ──────────────────────────────────────────────────────
-  const body = (req.body ?? {}) as { event?: unknown; video_id?: unknown };
+  const body = (req.body ?? {}) as {
+    event?: unknown;
+    video_id?: unknown;
+    topic?: unknown;
+  };
   const event = body.event;
   if (event !== "generate" && event !== "publish") {
     res.status(400).json({ error: "Unknown event; expected generate|publish" });
@@ -114,6 +121,18 @@ export default async function handler(
       return;
     }
     clientPayload.video_id = body.video_id;
+  }
+  if (event === "generate" && typeof body.topic === "string") {
+    // Optional free-text subject typed in the dashboard. Trim and cap it so the
+    // workflow never receives an empty or unbounded string.
+    const topic = body.topic.trim();
+    if (topic.length > MAX_TOPIC_LENGTH) {
+      res.status(400).json({
+        error: `topic must be at most ${MAX_TOPIC_LENGTH} characters`,
+      });
+      return;
+    }
+    if (topic.length > 0) clientPayload.topic = topic;
   }
 
   // ── fire repository_dispatch ──────────────────────────────────────────────

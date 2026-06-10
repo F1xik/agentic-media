@@ -139,6 +139,39 @@ describe("dispatch handler", () => {
     expect(sent.client_payload).toEqual({});
   });
 
+  it("includes a trimmed topic in the generate payload", async () => {
+    const r = await call({
+      headers: OWNER_HEADERS,
+      body: { event: "generate", topic: "  deep sea creatures  " },
+    });
+    expect(r.code).toBe(202);
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    const sent = JSON.parse(init.body);
+    expect(sent.event_type).toBe("generate_video");
+    expect(sent.client_payload).toEqual({ topic: "deep sea creatures" });
+  });
+
+  it("omits an empty/whitespace topic from the generate payload", async () => {
+    const r = await call({
+      headers: OWNER_HEADERS,
+      body: { event: "generate", topic: "   " },
+    });
+    expect(r.code).toBe(202);
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    expect(JSON.parse(init.body).client_payload).toEqual({});
+  });
+
+  it("rejects an over-long topic", async () => {
+    const r = await call({
+      headers: OWNER_HEADERS,
+      body: { event: "generate", topic: "x".repeat(201) },
+    });
+    expect(r.code).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("dispatches publish_video with video_id in the payload", async () => {
     const r = await call({
       headers: OWNER_HEADERS,

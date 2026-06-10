@@ -83,6 +83,25 @@ describe("produceReviewedSpec", () => {
     });
   });
 
+  it("forwards a requested topic to every attempt", async () => {
+    vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
+    vi.mocked(evaluateSpec)
+      .mockResolvedValueOnce({ approved: false, issues: ["too bland"] })
+      .mockResolvedValueOnce({ approved: true, issues: [] });
+
+    await produceReviewedSpec({
+      ...opts,
+      requestedTopic: "deep sea creatures",
+    });
+
+    expect(vi.mocked(requestGenerationSpec).mock.calls[0][0]).toMatchObject({
+      requestedTopic: "deep sea creatures",
+    });
+    expect(vi.mocked(requestGenerationSpec).mock.calls[1][0]).toMatchObject({
+      requestedTopic: "deep sea creatures",
+    });
+  });
+
   it("throws with the issues once attempts are exhausted", async () => {
     vi.mocked(requestGenerationSpec).mockResolvedValue(spec);
     vi.mocked(evaluateSpec).mockResolvedValue({

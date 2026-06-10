@@ -93,7 +93,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 
 ### GitHub Actions workflows
 
-- `generate.yml` — `schedule:` cron + `workflow_dispatch`. Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage.
+- `generate.yml` — `schedule:` cron + `repository_dispatch: types: [generate_video]` + `workflow_dispatch` (with an optional `topic` input). Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage. An optional subject (dashboard input → `client_payload.topic`, or the `workflow_dispatch` input) is passed to `generate.ts` via the `GENERATION_TOPIC` env var; when set it anchors the fact and skips the automatic trending pick.
 - `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
 - `evals.yml` — `pull_request`/`push` filtered to the prompt files + eval suite (plus `workflow_dispatch`). Runs `npm run eval` (real model-graded prompt evals) with `CLAUDE_CODE_OAUTH_TOKEN`, so prompt changes are gated on the evals passing.
 
@@ -108,7 +108,7 @@ VITE_SUPABASE_ANON_KEY=
 
 GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
 
-Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only), `GITHUB_REPOSITORY` (`owner/repo` the dispatch route targets), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` (or the `VITE_`-prefixed equivalents) so `api/dispatch.ts` can validate the caller's session. The route fires `repository_dispatch` events `generate_video` and `publish_video` (the latter with a `video_id` client payload).
+Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only), `GITHUB_REPOSITORY` (`owner/repo` the dispatch route targets), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` (or the `VITE_`-prefixed equivalents) so `api/dispatch.ts` can validate the caller's session. The route fires `repository_dispatch` events `generate_video` (with an optional free-text `topic` client payload typed in the dashboard) and `publish_video` (with a `video_id` client payload).
 
 ## Key constraints
 

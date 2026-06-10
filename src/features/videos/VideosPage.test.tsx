@@ -43,6 +43,26 @@ describe("VideosPage", () => {
     const button = screen.getByRole("button", { name: "Generate now" });
     fireEvent.click(button);
     expect(mockGenerate).toHaveBeenCalledTimes(1);
+    // No topic typed → undefined so the pipeline uses its trending pick.
+    expect(mockGenerate).toHaveBeenCalledWith(undefined, expect.anything());
+  });
+
+  it("passes a typed topic to the mutation", () => {
+    mockUseVideos.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<VideosPage />);
+    fireEvent.change(screen.getByLabelText("Video topic"), {
+      target: { value: "  deep sea creatures  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate now" }));
+    expect(mockGenerate).toHaveBeenCalledWith(
+      "deep sea creatures",
+      expect.anything(),
+    );
   });
 
   it("shows the Generate now button even while loading", () => {

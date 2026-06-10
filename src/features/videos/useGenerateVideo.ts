@@ -6,9 +6,9 @@ export function useGenerateVideo() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (topic?: string) => {
       if (!session) throw new Error("Not authenticated");
-      await triggerGenerate(session.access_token);
+      await triggerGenerate(session.access_token, topic);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["videos"] }),
   });

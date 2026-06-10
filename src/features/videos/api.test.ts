@@ -187,6 +187,45 @@ describe("triggerGenerate", () => {
     vi.unstubAllGlobals();
   });
 
+  it("includes a trimmed topic when one is provided", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await triggerGenerate("tok-123", "  deep sea creatures  ");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/dispatch",
+      expect.objectContaining({
+        body: JSON.stringify({
+          event: "generate",
+          topic: "deep sea creatures",
+        }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("omits an empty topic from the request body", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await triggerGenerate("tok-123", "   ");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/dispatch",
+      expect.objectContaining({
+        body: JSON.stringify({ event: "generate" }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
   it("throws the route error message on failure", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
