@@ -258,14 +258,14 @@ describe("recentFacts", () => {
     expect(facts).toEqual(["fact b", "fact a"]);
   });
 
-  it("defaults to a limit of 10 and returns an empty array when there are no rows", async () => {
+  it("defaults to a limit of 5 and returns an empty array when there are no rows", async () => {
     const mockLimit = vi.fn().mockResolvedValue({ data: null, error: null });
     const mockOrder = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockNot = vi.fn().mockReturnValue({ order: mockOrder });
     mockFrom.mockReturnValue({ select: () => ({ not: mockNot }) });
 
     expect(await recentFacts()).toEqual([]);
-    expect(mockLimit).toHaveBeenCalledWith(10);
+    expect(mockLimit).toHaveBeenCalledWith(5);
   });
 
   it("throws when Supabase returns an error", async () => {

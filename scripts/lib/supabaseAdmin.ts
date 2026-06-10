@@ -117,7 +117,7 @@ export async function recentTopics(limit = 10): Promise<string[]> {
  * rows); no status filter, so we dedup against every fact that reached text
  * generation regardless of approve/reject/publish state.
  */
-export async function recentFacts(limit = 10): Promise<string[]> {
+export async function recentFacts(limit = 5): Promise<string[]> {
   const { data, error } = await adminClient
     .from("videos")
     .select("fact_text")
