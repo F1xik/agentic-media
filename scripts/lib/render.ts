@@ -63,9 +63,10 @@ export const UPSCALE = 4;
 /** Maximum zoom the Ken Burns effect reaches by the end of the clip — enough to
  * read as clear motion rather than a near-static frame. */
 export const ZOOM_MAX = 1.25;
-/** Per-frame zoom increment; tuned so the zoom eases to ZOOM_MAX over the clip
- * (1 + 1800*0.00015 = 1.27, clamped to ZOOM_MAX, at 60fps × 30s = 1800 frames). */
-export const ZOOM_RATE = 0.00015;
+/** Per-frame zoom increment; tuned for a gentle, slow drift toward ZOOM_MAX over
+ * the clip (1 + 1800*0.00012 = 1.216 at 60fps × 30s = 1800 frames, staying under
+ * the ZOOM_MAX 1.25 ceiling). */
+export const ZOOM_RATE = 0.00012;
 
 /**
  * Build the FFmpeg `-vf` filter: a slow centered Ken Burns zoom over the frame
