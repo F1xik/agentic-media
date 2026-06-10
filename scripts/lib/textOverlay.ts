@@ -72,7 +72,7 @@ const BLOCK_GAP = 24;
 /** Fraction of the frame height left as a margin below the fact band, mirroring
  *  the hook's top inset. Splitting the blocks to the top and bottom edges leaves
  *  the middle of the photo visible. */
-const BOTTOM_MARGIN_RATIO = 0.14;
+const BOTTOM_MARGIN_RATIO = 0.17;
 
 /** Approximate advance width of an Arial Bold glyph as a fraction of the font
  *  size. Used to size the band to the text; a slight overestimate so the band
