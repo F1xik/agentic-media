@@ -15,6 +15,7 @@
     "eval": "vitest run --config vitest.eval.config.ts",
     "generate": "tsx scripts/generate.ts",
     "publish": "tsx scripts/publish.ts",
+    "cleanup": "tsx scripts/cleanup.ts",
     "prepare": "husky"
   },
   "dependencies": {

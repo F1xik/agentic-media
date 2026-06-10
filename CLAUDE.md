@@ -13,6 +13,7 @@ npm run format       # prettier --write .
 npm run format:check # prettier --check .
 npm run test         # vitest run (all tests, no watch)
 npm run eval         # real model-graded prompt evals (needs claude CLI + token)
+npm run cleanup      # delete Storage mp4s past the 30-day retention window
 npm run preview      # preview the production build
 ```
 
@@ -57,6 +58,7 @@ Node + TypeScript scripts run by GitHub Actions workflows:
 
 - `scripts/generate.ts` — orchestrates image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Sonnet 4.6** (at `medium` effort) produces a spec, a second call to Claude **Sonnet 4.6** (also at `medium` effort, `scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`); each role's reasoning depth is set via `--effort` (`GENERATION_EFFORT` / `EVALUATION_EFFORT`). Effort is Sonnet/Opus-only; the Haiku grader doesn't pass it.
 - `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
+- `scripts/cleanup.ts` — 30-day Storage retention. Lists videos whose `created_at` is older than 30 days and still have a `video_path` (`listExpiredVideos`), deletes each mp4 from the `videos` bucket (`deleteVideoObject`), and clears `video_path` while keeping the row + `run_logs` for history. Per-row failures are logged and skipped so one bad object doesn't abort the batch.
 - `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
 
 ### Database (Supabase)
@@ -95,6 +97,7 @@ Transitions: `generate.yml` inserts at `generating` and advances to `pending_rev
 
 - `generate.yml` — `schedule:` cron + `repository_dispatch: types: [generate_video]` + `workflow_dispatch` (with an optional `topic` input). Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage. An optional subject (dashboard input → `client_payload.topic`, or the `workflow_dispatch` input) is passed to `generate.ts` via the `GENERATION_TOPIC` env var; when set it anchors the fact and skips the automatic trending pick.
 - `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
+- `cleanup.yml` — `schedule:` cron (daily 03:00 UTC) + `workflow_dispatch`. Runs `npm run cleanup` with `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` to enforce the 30-day Storage retention policy (deletes expired mp4s, clears `video_path`, keeps rows).
 - `evals.yml` — `pull_request`/`push` filtered to the prompt files + eval suite (plus `workflow_dispatch`). Runs `npm run eval` (real model-graded prompt evals) with `CLAUDE_CODE_OAUTH_TOKEN`, so prompt changes are gated on the evals passing.
 
 ### Environment variables
