@@ -13,3 +13,17 @@ body,
 body {
   margin: 0;
 }
+
+/*
+ * iOS Safari auto-zooms when focusing a form control whose font-size is below
+ * 16px (and the zoom then sticks). Several inputs use Tailwind's text-sm (14px),
+ * so force 16px on touch devices to suppress the zoom without disabling
+ * pinch-to-zoom (which `maximum-scale=1` would do, hurting accessibility).
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

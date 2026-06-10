@@ -50,6 +50,22 @@ describe("getVideos", () => {
     expect(result).toEqual(rows);
   });
 
+  it("calls .in when an array of statuses is provided", async () => {
+    const rows = [{ id: "3", status: "published" }];
+    const mockIn = vi.fn().mockResolvedValue({ data: rows, error: null });
+    mockFrom.mockReturnValue({
+      select: () => ({ order: () => ({ in: mockIn }) }),
+    });
+
+    const result = await getVideos(["approved", "publishing", "published"]);
+    expect(mockIn).toHaveBeenCalledWith("status", [
+      "approved",
+      "publishing",
+      "published",
+    ]);
+    expect(result).toEqual(rows);
+  });
+
   it("throws on error", async () => {
     mockFrom.mockReturnValue({
       select: () => ({
