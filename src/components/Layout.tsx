@@ -1,6 +1,7 @@
 import { Outlet } from "react-router";
 import { useAuth } from "../features/auth/useAuth";
 import { signOut } from "../features/auth/api";
+import { BottomNav } from "./BottomNav";
 
 export function Layout() {
   const { session } = useAuth();
@@ -27,9 +28,10 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto max-w-5xl px-6 py-8 pb-24">
         <Outlet />
       </main>
+      <BottomNav />
     </div>
   );
 }

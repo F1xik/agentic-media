@@ -1,18 +1,9 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { VideosPage } from "./VideosPage";
+import { GeneratePage } from "./GeneratePage";
 
-const { mockUseVideos, mockGenerate } = vi.hoisted(() => ({
-  mockUseVideos: vi.fn(),
+const { mockGenerate } = vi.hoisted(() => ({
   mockGenerate: vi.fn(),
-}));
-
-vi.mock("../../lib/supabase", () => ({
-  supabase: { from: vi.fn(), storage: { from: vi.fn() } },
-}));
-
-vi.mock("./useVideos", () => ({
-  useVideos: mockUseVideos,
 }));
 
 vi.mock("./useGenerateVideo", () => ({
@@ -23,23 +14,13 @@ vi.mock("./useGenerateVideo", () => ({
   }),
 }));
 
-vi.mock("./VideoCard", () => ({
-  VideoCard: () => <div data-testid="video-card" />,
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("VideosPage", () => {
+describe("GeneratePage", () => {
   it("renders the Generate now button and fires the mutation on click", () => {
-    mockUseVideos.mockReturnValue({
-      data: [],
-      isLoading: false,
-      isError: false,
-    });
-
-    render(<VideosPage />);
+    render(<GeneratePage />);
     const button = screen.getByRole("button", { name: "Generate now" });
     fireEvent.click(button);
     expect(mockGenerate).toHaveBeenCalledTimes(1);
@@ -47,14 +28,8 @@ describe("VideosPage", () => {
     expect(mockGenerate).toHaveBeenCalledWith(undefined, expect.anything());
   });
 
-  it("passes a typed topic to the mutation", () => {
-    mockUseVideos.mockReturnValue({
-      data: [],
-      isLoading: false,
-      isError: false,
-    });
-
-    render(<VideosPage />);
+  it("passes a trimmed topic to the mutation", () => {
+    render(<GeneratePage />);
     fireEvent.change(screen.getByLabelText("Video topic"), {
       target: { value: "  deep sea creatures  " },
     });
@@ -63,18 +38,5 @@ describe("VideosPage", () => {
       "deep sea creatures",
       expect.anything(),
     );
-  });
-
-  it("shows the Generate now button even while loading", () => {
-    mockUseVideos.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    });
-
-    render(<VideosPage />);
-    expect(
-      screen.getByRole("button", { name: "Generate now" }),
-    ).toBeInTheDocument();
   });
 });

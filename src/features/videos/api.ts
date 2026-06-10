@@ -26,13 +26,17 @@ export interface Video {
   updated_at: string;
 }
 
-export async function getVideos(statusFilter?: VideoStatus): Promise<Video[]> {
+export async function getVideos(
+  statusFilter?: VideoStatus | VideoStatus[],
+): Promise<Video[]> {
   let query = supabase
     .from("videos")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (statusFilter) {
+  if (Array.isArray(statusFilter)) {
+    query = query.in("status", statusFilter);
+  } else if (statusFilter) {
     query = query.eq("status", statusFilter);
   }
 
