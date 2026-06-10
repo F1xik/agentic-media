@@ -51,6 +51,21 @@ describe("buildEvaluatorPrompt", () => {
     expect(prompt).toContain('{"approved": boolean, "issues": string[]}');
     expect(prompt).toContain("no prose, no code fences");
   });
+
+  it("adds a novelty criterion listing the recent facts when provided", () => {
+    const prompt = buildEvaluatorPrompt(spec, MUSIC, [
+      "Honey never spoils.",
+      "Bananas are berries.",
+    ]);
+    expect(prompt).toContain("Novelty");
+    expect(prompt).toContain("- Honey never spoils.");
+    expect(prompt).toContain("- Bananas are berries.");
+  });
+
+  it("omits the novelty criterion when no recent facts are provided", () => {
+    expect(buildEvaluatorPrompt(spec, MUSIC)).not.toContain("Novelty");
+    expect(buildEvaluatorPrompt(spec, MUSIC, [])).not.toContain("Novelty");
+  });
 });
 
 describe("parseVerdict", () => {
@@ -131,5 +146,20 @@ describe("evaluateSpec", () => {
       .mockResolvedValue(JSON.stringify({ approved: true, issues: [] }));
     const result = await evaluateSpec({ spec, validMusicIds: MUSIC, run });
     expect(result).toEqual({ approved: true, issues: [] });
+  });
+
+  it("forwards the facts to avoid into the prompt", async () => {
+    const run = vi
+      .fn()
+      .mockResolvedValue(JSON.stringify({ approved: true, issues: [] }));
+    await evaluateSpec({
+      spec,
+      validMusicIds: MUSIC,
+      avoidFacts: ["Honey never spoils."],
+      run,
+    });
+    const prompt = run.mock.calls[0][1][1];
+    expect(prompt).toContain("Novelty");
+    expect(prompt).toContain("- Honey never spoils.");
   });
 });

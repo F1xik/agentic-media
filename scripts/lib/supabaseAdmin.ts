@@ -111,6 +111,23 @@ export async function recentTopics(limit = 10): Promise<string[]> {
   return (data ?? []).map((row) => (row as { area: string }).area);
 }
 
+/**
+ * The most recently-created fact texts (newest first) to dedup new generations
+ * against. Filters out rows without a fact yet (e.g. in-progress `generating`
+ * rows); no status filter, so we dedup against every fact that reached text
+ * generation regardless of approve/reject/publish state.
+ */
+export async function recentFacts(limit = 10): Promise<string[]> {
+  const { data, error } = await adminClient
+    .from("videos")
+    .select("fact_text")
+    .not("fact_text", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => (row as { fact_text: string }).fact_text);
+}
+
 /** Record use of a topic area: increment `used_count`, inserting it if new. */
 export async function bumpTopic(area: string): Promise<void> {
   const { data, error } = await adminClient

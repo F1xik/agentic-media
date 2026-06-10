@@ -42,7 +42,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("image_query");
     expect(prompt).toContain("concrete nouns");
     expect(prompt).toContain("HARD LIMIT: 3 words maximum");
-    expect(prompt).toContain("surprising, verifiable, well-known");
+    expect(prompt).toContain("surprising, lesser-known, precisely-accurate");
     expect(prompt).toContain("curiosity-gap");
     expect(prompt).toContain(String(MAX_HOOK_LENGTH));
   });
@@ -95,6 +95,23 @@ describe("buildPrompt", () => {
     );
     expect(buildPrompt(["space"], MUSIC, [])).not.toContain(
       "A previous attempt was rejected",
+    );
+  });
+
+  it("lists the recently-used facts to avoid when provided", () => {
+    const prompt = buildPrompt([], MUSIC, [], undefined, undefined, [
+      "Octopuses have three hearts.",
+      "Honey never spoils.",
+    ]);
+    expect(prompt).toContain("Your fact must be NEW");
+    expect(prompt).toContain("- Octopuses have three hearts.");
+    expect(prompt).toContain("- Honey never spoils.");
+  });
+
+  it("omits the avoid-facts block when no facts are provided", () => {
+    expect(buildPrompt([], MUSIC)).not.toContain("Your fact must be NEW");
+    expect(buildPrompt([], MUSIC, [], undefined, undefined, [])).not.toContain(
+      "Your fact must be NEW",
     );
   });
 });
@@ -285,5 +302,18 @@ describe("requestGenerationSpec", () => {
       "--output-format",
       "json",
     ]);
+  });
+
+  it("forwards the facts to avoid into the prompt", async () => {
+    const run = vi.fn().mockResolvedValue(JSON.stringify(validSpec));
+    await requestGenerationSpec({
+      avoidTopics: [],
+      validMusicIds: MUSIC,
+      avoidFacts: ["Honey never spoils."],
+      run,
+    });
+    const prompt = run.mock.calls[0][1][1];
+    expect(prompt).toContain("Your fact must be NEW");
+    expect(prompt).toContain("- Honey never spoils.");
   });
 });

@@ -26,19 +26,32 @@ export type Verdict = { approved: boolean; issues: string[] };
 export function buildEvaluatorPrompt(
   spec: GenerationSpec,
   musicIds: string[],
+  avoidFacts: string[] = [],
 ): string {
-  return [
+  const lines = [
     "You are a strict editor and fact-checker for a faceless YouTube Shorts channel of surprising, true fun facts.",
     "Judge the generated item below against ALL of these criteria:",
     "1. Factual accuracy: fact_text must be true, verifiable, and not a hallucination or distortion.",
     `2. Format and constraints: topic is 2-4 words; hook is at most ${MAX_HOOK_LENGTH} characters with no hashtags; fact_text is at most ${MAX_FACT_LENGTH} characters with no hashtags; image_query is 1-${MAX_IMAGE_QUERY_WORDS} concrete nouns naming the subject (a stock-photo search term, not a sentence); image_prompt describes a vertical background image with no embedded text; music is one of: ${musicIds.join(", ")}.`,
     "3. Engagement: the fact is genuinely surprising and hook-worthy for a short-form audience, not bland or widely-known trivia; AND the hook is a real curiosity gap (a teaser or question that makes the viewer want the answer) that sets up fact_text as the payoff without restating it or giving the answer away.",
+  ];
+
+  if (avoidFacts.length > 0) {
+    lines.push(
+      "4. Novelty: fact_text must not duplicate or substantially overlap any of these recently-used facts (reject paraphrases and the same underlying claim, even if worded differently):",
+      ...avoidFacts.map((fact) => `- ${fact}`),
+    );
+  }
+
+  lines.push(
     "Respond with ONE JSON object and nothing else (no prose, no code fences).",
     'Schema: {"approved": boolean, "issues": string[]}',
     "Approve only if every criterion holds. Give one concise issue string per failing criterion; use an empty issues array when approved.",
     "Item to evaluate:",
     JSON.stringify(spec),
-  ].join("\n");
+  );
+
+  return lines.join("\n");
 }
 
 /**
@@ -62,6 +75,8 @@ export function parseVerdict(raw: string): Verdict {
 export type EvaluateOptions = {
   spec: GenerationSpec;
   validMusicIds: string[];
+  /** Recently-used fact texts to check the spec's novelty against. */
+  avoidFacts?: string[];
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
   run?: CommandRunner;
 };
@@ -73,9 +88,10 @@ export type EvaluateOptions = {
 export async function evaluateSpec({
   spec,
   validMusicIds,
+  avoidFacts = [],
   run = defaultRunner,
 }: EvaluateOptions): Promise<Verdict> {
-  const prompt = buildEvaluatorPrompt(spec, validMusicIds);
+  const prompt = buildEvaluatorPrompt(spec, validMusicIds, avoidFacts);
   const stdout = await run("claude", [
     "-p",
     prompt,

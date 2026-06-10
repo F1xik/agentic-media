@@ -12,6 +12,7 @@ import {
   appendLog,
   uploadVideo,
   recentTopics,
+  recentFacts,
   bumpTopic,
 } from "./lib/supabaseAdmin.ts";
 import { parseCredits, getAttribution, MUSIC_DIR } from "./lib/musicAssets.ts";
@@ -43,7 +44,10 @@ export async function generate(): Promise<string> {
     //    `claude` call that returns null if web search is unavailable, so a
     //    trending miss never blocks the pipeline).
     const requestedTopic = process.env.GENERATION_TOPIC?.trim() || undefined;
-    const avoidTopics = await recentTopics();
+    const [avoidTopics, avoidFacts] = await Promise.all([
+      recentTopics(),
+      recentFacts(),
+    ]);
     const trending = requestedTopic
       ? null
       : await pickTrendingTopic({ avoidTopics });
@@ -67,6 +71,7 @@ export async function generate(): Promise<string> {
       validMusicIds,
       trendingTopic: trending?.topic,
       requestedTopic,
+      avoidFacts,
       onRound: ({ attempt, verdict }) =>
         appendLog(
           id,
