@@ -30,7 +30,7 @@ type VideoUpdate = Partial<{
   image_prompt: string;
   music_track: string;
   music_attribution: string;
-  video_path: string;
+  video_path: string | null;
   youtube_id: string;
   youtube_url: string;
   error: string;
@@ -76,6 +76,26 @@ export async function getVideo(id: string): Promise<VideoRow> {
     .single();
   if (error) throw error;
   return data as VideoRow;
+}
+
+/**
+ * List videos whose Storage object is eligible for retention cleanup: rows older
+ * than `olderThanDays` (by `created_at`) that still have a `video_path`. Used by
+ * the cleanup job to free Storage while keeping the rows for history.
+ */
+export async function listExpiredVideos(
+  olderThanDays = 30,
+): Promise<{ id: string; video_path: string }[]> {
+  const cutoff = new Date(
+    Date.now() - olderThanDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data, error } = await adminClient
+    .from("videos")
+    .select("id, video_path")
+    .lt("created_at", cutoff)
+    .not("video_path", "is", null);
+  if (error) throw error;
+  return (data ?? []) as { id: string; video_path: string }[];
 }
 
 // ── topics ────────────────────────────────────────────────────────────────────
@@ -142,6 +162,12 @@ export async function uploadVideo(
     .upload(path, buffer, { contentType, upsert: true });
   if (error) throw error;
   return path;
+}
+
+/** Delete a video object from Storage by its path (retention cleanup). */
+export async function deleteVideoObject(path: string): Promise<void> {
+  const { error } = await adminClient.storage.from("videos").remove([path]);
+  if (error) throw error;
 }
 
 /** Download a video object from Storage by its path, as a Buffer. */

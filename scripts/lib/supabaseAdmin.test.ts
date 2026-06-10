@@ -25,6 +25,8 @@ import {
   appendLog,
   uploadVideo,
   downloadVideo,
+  deleteVideoObject,
+  listExpiredVideos,
   getVideo,
   recentTopics,
   bumpTopic,
@@ -148,6 +150,61 @@ describe("appendLog", () => {
   });
 });
 
+describe("listExpiredVideos", () => {
+  it("selects rows older than the cutoff that still have a video_path", async () => {
+    const rows = [
+      { id: "old-1", video_path: "old-1.mp4" },
+      { id: "old-2", video_path: "old-2.mp4" },
+    ];
+    const mockNot = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const mockLt = vi.fn().mockReturnValue({ not: mockNot });
+    const mockSelect = vi.fn().mockReturnValue({ lt: mockLt });
+    mockFrom.mockReturnValue({ select: mockSelect });
+
+    const before = Date.now();
+    const result = await listExpiredVideos(30);
+
+    expect(mockFrom).toHaveBeenCalledWith("videos");
+    expect(mockSelect).toHaveBeenCalledWith("id, video_path");
+    expect(mockNot).toHaveBeenCalledWith("video_path", "is", null);
+    // cutoff is ~30 days before now.
+    const [column, cutoff] = mockLt.mock.calls[0];
+    expect(column).toBe("created_at");
+    const expected = before - 30 * 24 * 60 * 60 * 1000;
+    expect(Date.parse(cutoff as string)).toBeGreaterThanOrEqual(
+      expected - 5000,
+    );
+    expect(Date.parse(cutoff as string)).toBeLessThanOrEqual(expected + 5000);
+    expect(result).toEqual(rows);
+  });
+
+  it("returns an empty array when there are no rows", async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        lt: () => ({
+          not: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    });
+
+    expect(await listExpiredVideos()).toEqual([]);
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        lt: () => ({
+          not: vi
+            .fn()
+            .mockResolvedValue({ data: null, error: new Error("list error") }),
+        }),
+      }),
+    });
+
+    await expect(listExpiredVideos()).rejects.toThrow("list error");
+  });
+});
+
 describe("recentTopics", () => {
   it("returns areas ordered by used_count", async () => {
     const mockLimit = vi.fn().mockResolvedValue({
@@ -253,6 +310,28 @@ describe("uploadVideo", () => {
     await expect(
       uploadVideo("video-uuid", Buffer.from("data")),
     ).rejects.toThrow("upload error");
+  });
+});
+
+describe("deleteVideoObject", () => {
+  it("removes the object by path", async () => {
+    const mockRemove = vi.fn().mockResolvedValue({ error: null });
+    mockStorageFrom.mockReturnValue({ remove: mockRemove });
+
+    await deleteVideoObject("video-uuid.mp4");
+
+    expect(mockStorageFrom).toHaveBeenCalledWith("videos");
+    expect(mockRemove).toHaveBeenCalledWith(["video-uuid.mp4"]);
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    mockStorageFrom.mockReturnValue({
+      remove: vi.fn().mockResolvedValue({ error: new Error("remove error") }),
+    });
+
+    await expect(deleteVideoObject("video-uuid.mp4")).rejects.toThrow(
+      "remove error",
+    );
   });
 });
 
