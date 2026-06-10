@@ -84,7 +84,7 @@ export async function rejectVideo(id: string): Promise<void> {
 // `repository_dispatch` event. The token is passed through as a Bearer header.
 async function postDispatch(
   token: string,
-  body: { event: "generate" | "publish"; video_id?: string },
+  body: { event: "generate" | "publish"; video_id?: string; topic?: string },
 ): Promise<void> {
   const res = await fetch("/api/dispatch", {
     method: "POST",
@@ -100,8 +100,17 @@ async function postDispatch(
   }
 }
 
-export async function triggerGenerate(token: string): Promise<void> {
-  await postDispatch(token, { event: "generate" });
+// `topic` is an optional free-text subject typed in the dashboard; when omitted
+// the pipeline falls back to its automatic trending pick.
+export async function triggerGenerate(
+  token: string,
+  topic?: string,
+): Promise<void> {
+  const trimmed = topic?.trim();
+  await postDispatch(token, {
+    event: "generate",
+    ...(trimmed ? { topic: trimmed } : {}),
+  });
 }
 
 export async function triggerPublish(

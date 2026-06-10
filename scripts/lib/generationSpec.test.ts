@@ -59,6 +59,26 @@ describe("buildPrompt", () => {
     );
   });
 
+  it("builds the fact around a user-requested topic when one is given", () => {
+    const prompt = buildPrompt([], MUSIC, [], undefined, "deep sea creatures");
+    expect(prompt).toContain("deep sea creatures");
+    expect(prompt).toContain("The user has specifically requested");
+  });
+
+  it("lets a requested topic take precedence over a trending one", () => {
+    const prompt = buildPrompt(
+      [],
+      MUSIC,
+      [],
+      "Olympic swimming",
+      "deep sea creatures",
+    );
+    expect(prompt).toContain("The user has specifically requested");
+    expect(prompt).toContain("deep sea creatures");
+    expect(prompt).not.toContain("Anchor this around the currently-trending");
+    expect(prompt).not.toContain("Olympic swimming");
+  });
+
   it("appends evaluator feedback when provided", () => {
     const prompt = buildPrompt(["space"], MUSIC, [
       "fact is not surprising",
@@ -224,6 +244,27 @@ describe("requestGenerationSpec", () => {
       "--output-format",
       "json",
     ]);
+  });
+
+  it("forwards a requested topic into the prompt", async () => {
+    const run = vi.fn().mockResolvedValue(JSON.stringify(validSpec));
+    await requestGenerationSpec({
+      avoidTopics: [],
+      validMusicIds: MUSIC,
+      requestedTopic: "deep sea creatures",
+      run,
+    });
+    expect(run).toHaveBeenCalledWith("claude", [
+      "-p",
+      expect.stringContaining("deep sea creatures"),
+      "--model",
+      "claude-sonnet-4-6",
+      "--effort",
+      "medium",
+      "--output-format",
+      "json",
+    ]);
+    expect(run.mock.calls[0][1][1]).toContain("The user has specifically");
   });
 
   it("forwards evaluator feedback into the prompt", async () => {

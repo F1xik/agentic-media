@@ -40,17 +40,32 @@ describe("useGenerateVideo", () => {
     const { result } = renderHook(() => useGenerateVideo(), {
       wrapper: makeWrapper({ session, loading: false }),
     });
-    result.current.mutate();
+    result.current.mutate(undefined);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockTriggerGenerate).toHaveBeenCalledWith("tok-abc");
+    expect(mockTriggerGenerate).toHaveBeenCalledWith("tok-abc", undefined);
+  });
+
+  it("forwards a typed topic to triggerGenerate", async () => {
+    mockTriggerGenerate.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useGenerateVideo(), {
+      wrapper: makeWrapper({ session, loading: false }),
+    });
+    result.current.mutate("deep sea creatures");
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockTriggerGenerate).toHaveBeenCalledWith(
+      "tok-abc",
+      "deep sea creatures",
+    );
   });
 
   it("errors when there is no session", async () => {
     const { result } = renderHook(() => useGenerateVideo(), {
       wrapper: makeWrapper({ session: null, loading: false }),
     });
-    result.current.mutate();
+    result.current.mutate(undefined);
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe("Not authenticated");

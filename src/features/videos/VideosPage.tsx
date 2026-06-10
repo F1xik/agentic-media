@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { type VideoStatus } from "./api";
 import { useVideos } from "./useVideos";
 import { useGenerateVideo } from "./useGenerateVideo";
 import { VideoCard } from "./VideoCard";
+
+/** Mirrors the topic cap enforced by the dispatch route (api/dispatch.ts). */
+const MAX_TOPIC_LENGTH = 200;
 
 const STATUS_ORDER: VideoStatus[] = [
   "pending_review",
@@ -26,6 +30,14 @@ const STATUS_LABELS: Record<VideoStatus, string> = {
 export function VideosPage() {
   const { data: videos, isLoading, isError } = useVideos();
   const generate = useGenerateVideo();
+  const [topic, setTopic] = useState("");
+
+  function handleGenerate() {
+    const trimmed = topic.trim();
+    generate.mutate(trimmed || undefined, {
+      onSuccess: () => setTopic(""),
+    });
+  }
 
   function renderBody() {
     if (isLoading) {
@@ -90,14 +102,31 @@ export function VideosPage() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold tracking-tight">Videos</h1>
         <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            disabled={generate.isPending}
-            onClick={() => generate.mutate()}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerate();
+            }}
           >
-            {generate.isPending ? "Generating…" : "Generate now"}
-          </button>
+            <input
+              type="text"
+              value={topic}
+              maxLength={MAX_TOPIC_LENGTH}
+              disabled={generate.isPending}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="Optional topic (e.g. deep sea creatures)"
+              aria-label="Video topic"
+              className="w-64 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={generate.isPending}
+              className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {generate.isPending ? "Generating…" : "Generate now"}
+            </button>
+          </form>
           {generate.error && (
             <p className="rounded bg-red-50 px-2 py-1 text-xs text-red-600">
               {generate.error.message}

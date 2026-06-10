@@ -4,11 +4,17 @@ on:
   # One short generation per day; kept modest to respect Claude Pro token limits.
   schedule:
     - cron: "0 9 * * *"
-  # Dashboard "Generate now" button → api/dispatch.ts fires this event.
+  # Dashboard "Generate now" button → api/dispatch.ts fires this event, with an
+  # optional `topic` in the client payload when one was typed in the UI.
   repository_dispatch:
     types: [generate_video]
   # Manual "Generate now" trigger from the Actions tab.
   workflow_dispatch:
+    inputs:
+      topic:
+        description: "Optional subject to anchor the video around (blank = automatic trending pick)"
+        required: false
+        type: string
 
 # Avoid overlapping runs racing on topic selection / token usage.
 concurrency:
@@ -45,3 +51,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          # Optional subject typed in the dashboard (repository_dispatch) or the
+          # Actions tab (workflow_dispatch); blank for scheduled/automatic runs.
+          GENERATION_TOPIC: ${{ github.event.client_payload.topic || inputs.topic }}

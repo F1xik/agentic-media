@@ -42,12 +42,17 @@ export class SpecValidationError extends Error {}
  * Build the Claude prompt, biased away from recently-used topics. When a prior
  * attempt was rejected by the evaluator, its critique is passed as `feedback`
  * and appended so the next attempt can correct the flagged issues.
+ *
+ * `requestedTopic` is an explicit subject the user typed in the dashboard; it
+ * takes precedence over `trendingTopic` (the automatic trending pick), so when
+ * both are supplied only the user request is used to anchor the fact.
  */
 export function buildPrompt(
   avoidTopics: string[],
   musicIds: string[],
   feedback: string[] = [],
   trendingTopic?: string,
+  requestedTopic?: string,
 ): string {
   const avoid =
     avoidTopics.length > 0
@@ -58,7 +63,11 @@ export function buildPrompt(
     "You are scripting a faceless YouTube Shorts channel of surprising, true fun facts.",
   ];
 
-  if (trendingTopic) {
+  if (requestedTopic) {
+    lines.push(
+      `The user has specifically requested a video about "${requestedTopic}". Build the fact around this exact subject: find a SURPRISING, VERIFIABLE, evergreen fun fact connected to it. Do NOT report breaking news or anything hard to fact-check — the fact itself must be timeless and checkable.`,
+    );
+  } else if (trendingTopic) {
     lines.push(
       `Anchor this around the currently-trending subject area "${trendingTopic}": find a SURPRISING, VERIFIABLE, evergreen fun fact connected to it. Do NOT report breaking news or anything hard to fact-check — the fact itself must be timeless and checkable.`,
     );
@@ -194,6 +203,9 @@ export type RequestOptions = {
   feedback?: string[];
   /** Currently-trending subject area to anchor the fact around, if any. */
   trendingTopic?: string;
+  /** Explicit subject requested by the user in the dashboard; takes precedence
+   *  over `trendingTopic`. */
+  requestedTopic?: string;
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
   run?: CommandRunner;
 };
@@ -207,6 +219,7 @@ export async function requestGenerationSpec({
   validMusicIds,
   feedback = [],
   trendingTopic,
+  requestedTopic,
   run = defaultRunner,
 }: RequestOptions): Promise<GenerationSpec> {
   const prompt = buildPrompt(
@@ -214,6 +227,7 @@ export async function requestGenerationSpec({
     validMusicIds,
     feedback,
     trendingTopic,
+    requestedTopic,
   );
   const stdout = await run("claude", [
     "-p",

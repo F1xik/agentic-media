@@ -37,29 +37,36 @@ export async function generate(): Promise<string> {
   try {
     await appendLog(id, "init", "info", "generation started");
 
-    // 1. Pick a currently-trending subject area to anchor the fact around (a
-    //    web-grounded `claude` call). It returns null if web search is
-    //    unavailable; we then fall back to the producer's free-choice topic so a
-    //    trending miss never blocks the pipeline.
+    // 1. Anchor the fact around a subject area. A topic typed in the dashboard
+    //    (threaded in via the GENERATION_TOPIC env var) takes precedence; only
+    //    when none is supplied do we make a web-grounded trending pick (a
+    //    `claude` call that returns null if web search is unavailable, so a
+    //    trending miss never blocks the pipeline).
+    const requestedTopic = process.env.GENERATION_TOPIC?.trim() || undefined;
     const avoidTopics = await recentTopics();
-    const trending = await pickTrendingTopic({ avoidTopics });
+    const trending = requestedTopic
+      ? null
+      : await pickTrendingTopic({ avoidTopics });
     await appendLog(
       id,
       "trending",
-      trending ? "info" : "warn",
-      trending
-        ? `anchoring on trend "${trending.topic}"${trending.rationale ? `: ${trending.rationale}` : ""}`
-        : "trending pick unavailable; using free-choice topic",
+      requestedTopic || trending ? "info" : "warn",
+      requestedTopic
+        ? `using requested topic "${requestedTopic}"`
+        : trending
+          ? `anchoring on trend "${trending.topic}"${trending.rationale ? `: ${trending.rationale}` : ""}`
+          : "trending pick unavailable; using free-choice topic",
     );
 
     // 2. Produce a spec, biased away from recently-used topics and anchored to
-    //    the trend, and have the evaluator cross-check it; retry with feedback
-    //    until approved (or fail).
+    //    the requested/trending subject, and have the evaluator cross-check it;
+    //    retry with feedback until approved (or fail).
     const validMusicIds = parseCredits().map((t) => t.id);
     const { spec } = await produceReviewedSpec({
       avoidTopics,
       validMusicIds,
       trendingTopic: trending?.topic,
+      requestedTopic,
       onRound: ({ attempt, verdict }) =>
         appendLog(
           id,

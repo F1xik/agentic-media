@@ -27,6 +27,10 @@ export type ProduceOptions = {
    *  evaluator stays trend-agnostic and keeps judging the final spec on
    *  accuracy/format/engagement, so a trend can't lower the accuracy bar. */
   trendingTopic?: string;
+  /** Explicit subject the user requested in the dashboard. Takes precedence
+   *  over `trendingTopic`; the evaluator stays subject-agnostic, so a user
+   *  request can't lower the accuracy bar either. */
+  requestedTopic?: string;
   /** Maximum produce→evaluate rounds before giving up (default `MAX_ATTEMPTS`). */
   maxAttempts?: number;
   /** Injectable runner for tests; defaults to spawning the `claude` CLI. */
@@ -54,6 +58,7 @@ export async function produceReviewedSpec({
   avoidTopics,
   validMusicIds,
   trendingTopic,
+  requestedTopic,
   maxAttempts = MAX_ATTEMPTS,
   run,
   onRound,
@@ -69,6 +74,7 @@ export async function produceReviewedSpec({
         validMusicIds,
         feedback,
         trendingTopic,
+        requestedTopic,
         run,
       });
     } catch (err) {
