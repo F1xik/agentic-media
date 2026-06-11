@@ -34,6 +34,69 @@ export type GenerationSpec = {
 /** A shell runner abstraction so the Claude call can be mocked in tests. */
 export type CommandRunner = (cmd: string, args: string[]) => Promise<string>;
 
+/**
+ * Minimal system prompt shared by every pipeline `claude` call. It replaces the
+ * full Claude Code agent system prompt (via `--system-prompt`), which the
+ * structured "return one JSON object" tasks never need, trimming a large fixed
+ * input-token overhead from each call.
+ */
+export const MINIMAL_SYSTEM_PROMPT =
+  "Respond with exactly one JSON object matching the requested schema. No prose, no markdown, no code fences.";
+
+/** Options for assembling a headless `claude -p` invocation. */
+export type ClaudeArgsOptions = {
+  prompt: string;
+  model: string;
+  /** Reasoning effort; omitted from argv when undefined (e.g. Haiku, which
+   *  rejects `--effort`). */
+  effort?: string;
+  /** Value for `--allowedTools`; omitted entirely when undefined. Pass `""` to
+   *  strip every built-in tool schema on calls that use no tools. */
+  allowedTools?: string;
+};
+
+/**
+ * Build the argv for a headless `claude -p` JSON call shared by all four
+ * pipeline roles. Always runs in `--bare` mode (skips CLAUDE.md / hooks /
+ * skills / plugins / MCP auto-discovery) with the minimal system prompt, so the
+ * only context the model sees is the task prompt itself.
+ */
+export function buildClaudeArgs({
+  prompt,
+  model,
+  effort,
+  allowedTools,
+}: ClaudeArgsOptions): string[] {
+  return [
+    "-p",
+    prompt,
+    "--bare",
+    "--system-prompt",
+    MINIMAL_SYSTEM_PROMPT,
+    "--model",
+    model,
+    ...(effort !== undefined ? ["--effort", effort] : []),
+    ...(allowedTools !== undefined ? ["--allowedTools", allowedTools] : []),
+    "--output-format",
+    "json",
+  ];
+}
+
+/**
+ * Unwrap the `{ result }` envelope that `--output-format json` wraps the reply
+ * in, returning the inner string. Falls back to the raw stdout when it isn't an
+ * envelope (e.g. mocked plain output in tests).
+ */
+export function unwrapResultEnvelope(stdout: string): string {
+  try {
+    const envelope = JSON.parse(stdout) as { result?: unknown };
+    if (typeof envelope.result === "string") return envelope.result;
+  } catch {
+    // Not an envelope; fall through to the raw stdout.
+  }
+  return stdout;
+}
+
 /** The model's reply failed local parsing/validation. Retryable with feedback,
  *  unlike infrastructure errors (e.g. the `claude` CLI exiting non-zero). */
 export class SpecValidationError extends Error {}
@@ -242,25 +305,15 @@ export async function requestGenerationSpec({
     requestedTopic,
     avoidFacts,
   );
-  const stdout = await run("claude", [
-    "-p",
-    prompt,
-    "--model",
-    GENERATION_MODEL,
-    "--effort",
-    GENERATION_EFFORT,
-    "--output-format",
-    "json",
-  ]);
+  const stdout = await run(
+    "claude",
+    buildClaudeArgs({
+      prompt,
+      model: GENERATION_MODEL,
+      effort: GENERATION_EFFORT,
+      allowedTools: "",
+    }),
+  );
 
-  // `--output-format json` wraps the reply in an envelope: { result, ... }.
-  let result = stdout;
-  try {
-    const envelope = JSON.parse(stdout) as { result?: unknown };
-    if (typeof envelope.result === "string") result = envelope.result;
-  } catch {
-    // Not an envelope (e.g. mocked plain output); fall through to parse raw.
-  }
-
-  return parseGenerationSpec(result, validMusicIds);
+  return parseGenerationSpec(unwrapResultEnvelope(stdout), validMusicIds);
 }

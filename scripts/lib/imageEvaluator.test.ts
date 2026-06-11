@@ -12,6 +12,7 @@ import {
   type Candidate,
   type ImageEvalContext,
 } from "./imageEvaluator.ts";
+import { MINIMAL_SYSTEM_PROMPT } from "./generationSpec.ts";
 
 describe("model selection", () => {
   it("judges with Sonnet 4.6 at low effort", () => {
@@ -168,6 +169,9 @@ describe("evaluateImageCandidates", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("0: file="),
+      "--bare",
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",

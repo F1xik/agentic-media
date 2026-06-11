@@ -9,8 +9,10 @@ import {
   MAX_FACT_LENGTH,
   MAX_HOOK_LENGTH,
   MAX_IMAGE_QUERY_WORDS,
+  buildClaudeArgs,
   defaultRunner,
   extractJsonObject,
+  unwrapResultEnvelope,
 } from "./generationSpec.ts";
 
 /** Evaluation is a fact-checking task; use Sonnet 4.6 for stronger judgement. */
@@ -92,25 +94,15 @@ export async function evaluateSpec({
   run = defaultRunner,
 }: EvaluateOptions): Promise<Verdict> {
   const prompt = buildEvaluatorPrompt(spec, validMusicIds, avoidFacts);
-  const stdout = await run("claude", [
-    "-p",
-    prompt,
-    "--model",
-    EVALUATION_MODEL,
-    "--effort",
-    EVALUATION_EFFORT,
-    "--output-format",
-    "json",
-  ]);
+  const stdout = await run(
+    "claude",
+    buildClaudeArgs({
+      prompt,
+      model: EVALUATION_MODEL,
+      effort: EVALUATION_EFFORT,
+      allowedTools: "",
+    }),
+  );
 
-  // `--output-format json` wraps the reply in an envelope: { result, ... }.
-  let result = stdout;
-  try {
-    const envelope = JSON.parse(stdout) as { result?: unknown };
-    if (typeof envelope.result === "string") result = envelope.result;
-  } catch {
-    // Not an envelope (e.g. mocked plain output); fall through to parse raw.
-  }
-
-  return parseVerdict(result);
+  return parseVerdict(unwrapResultEnvelope(stdout));
 }

@@ -7,7 +7,7 @@
 // continuously on a schedule, so a plain knowledge-only call would just guess
 // outdated trends. Grounding the pick with live search keeps it current.
 //
-// This is deliberately a single, low-effort call with no retry loop, and it
+// This is deliberately a single, cheap call with no retry loop, and it
 // NEVER throws: on any failure (web unavailable, non-zero exit, malformed
 // output) it returns `null` so the caller falls back to the producer's normal
 // free-choice behaviour — mirroring the Pexels → gradient degradation that
@@ -16,16 +16,16 @@
 
 import {
   type CommandRunner,
+  buildClaudeArgs,
   defaultRunner,
   extractJsonObject,
+  unwrapResultEnvelope,
 } from "./generationSpec.ts";
 
-/** Picking a trend is a light lookup task; use Sonnet 4.6. */
-export const TRENDING_MODEL = "claude-sonnet-4-6";
-
-/** Low effort keeps the extra per-video call cheap and fast; the heavy
- *  creative reasoning still happens in the producer. Sonnet accepts low|medium|high. */
-export const TRENDING_EFFORT = "low";
+/** Picking a trend is a light web-grounded lookup, not creative writing, so use
+ *  the cheaper Haiku 4.5: the producer→evaluator loop still enforces quality.
+ *  Haiku doesn't accept `--effort`, so the call omits it. */
+export const TRENDING_MODEL = "claude-haiku-4-5-20251001";
 
 /** A trending subject area plus a short note on why it's trending. */
 export type TrendingTopic = { topic: string; rationale?: string };
@@ -95,29 +95,16 @@ export async function pickTrendingTopic({
 }: PickTrendingOptions): Promise<TrendingTopic | null> {
   try {
     const prompt = buildTrendingPrompt(avoidTopics);
-    const stdout = await run("claude", [
-      "-p",
-      prompt,
-      "--model",
-      TRENDING_MODEL,
-      "--effort",
-      TRENDING_EFFORT,
-      "--allowedTools",
-      "WebSearch",
-      "--output-format",
-      "json",
-    ]);
+    const stdout = await run(
+      "claude",
+      buildClaudeArgs({
+        prompt,
+        model: TRENDING_MODEL,
+        allowedTools: "WebSearch",
+      }),
+    );
 
-    // `--output-format json` wraps the reply in an envelope: { result, ... }.
-    let result = stdout;
-    try {
-      const envelope = JSON.parse(stdout) as { result?: unknown };
-      if (typeof envelope.result === "string") result = envelope.result;
-    } catch {
-      // Not an envelope (e.g. mocked plain output); fall through to parse raw.
-    }
-
-    return parseTrendingTopic(result);
+    return parseTrendingTopic(unwrapResultEnvelope(stdout));
   } catch {
     // Web unavailable, non-zero exit, or malformed output — degrade gracefully.
     return null;

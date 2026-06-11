@@ -7,7 +7,11 @@ import {
   EVALUATION_MODEL,
   EVALUATION_EFFORT,
 } from "./specEvaluator.ts";
-import { MAX_FACT_LENGTH, GENERATION_MODEL } from "./generationSpec.ts";
+import {
+  MAX_FACT_LENGTH,
+  GENERATION_MODEL,
+  MINIMAL_SYSTEM_PROMPT,
+} from "./generationSpec.ts";
 
 describe("model selection", () => {
   it("evaluates and generates with Sonnet 4.6 at medium effort", () => {
@@ -131,10 +135,15 @@ describe("evaluateSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("Octopuses have three hearts"),
+      "--bare",
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "",
       "--output-format",
       "json",
     ]);
