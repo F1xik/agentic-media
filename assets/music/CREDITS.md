@@ -19,12 +19,18 @@ The **filename** (without extension) is the stable identifier Claude selects via
 `music: <filename>`. The **mood** tag lets the generation script match a track to
 the video's tone.
 
-| Filename        | Title         | Mood         | Source                                                                           |
-| --------------- | ------------- | ------------ | -------------------------------------------------------------------------------- |
-| `carefree`      | Carefree      | `chill`      | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3>        |
-| `inspired`      | Inspired      | `upbeat`     | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Inspired.mp3>        |
-| `wholesome`     | Wholesome     | `epic`       | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Wholesome.mp3>       |
-| `sneaky-snitch` | Sneaky Snitch | `mysterious` | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3> |
+| Filename                   | Title                    | Mood         | Source                                                                                        |
+| -------------------------- | ------------------------ | ------------ | --------------------------------------------------------------------------------------------- |
+| `carefree`                 | Carefree                 | `chill`      | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3>                     |
+| `inspired`                 | Inspired                 | `upbeat`     | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Inspired.mp3>                     |
+| `wholesome`                | Wholesome                | `epic`       | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Wholesome.mp3>                    |
+| `sneaky-snitch`            | Sneaky Snitch            | `mysterious` | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3>              |
+| `monkeys-spinning-monkeys` | Monkeys Spinning Monkeys | `comedic`    | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Monkeys%20Spinning%20Monkeys.mp3> |
+| `fluffing-a-duck`          | Fluffing a Duck          | `quirky`     | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fluffing%20a%20Duck.mp3>          |
+| `bossa-antigua`            | Bossa Antigua            | `jazzy`      | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Bossa%20Antigua.mp3>              |
+| `funkorama`                | Funkorama                | `funky`      | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Funkorama.mp3>                    |
+| `hitman`                   | Hitman                   | `dramatic`   | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/Hitman.mp3>                       |
+| `8bit-dungeon-level`       | 8bit Dungeon Level       | `retro`      | <https://incompetech.com/music/royalty-free/mp3-royaltyfree/8bit%20Dungeon%20Level.mp3>       |
 
 ## Required attribution strings
 
@@ -34,3 +40,9 @@ Store the matching line in `videos.music_attribution` for the chosen track:
 - `inspired`: "Inspired" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
 - `wholesome`: "Wholesome" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
 - `sneaky-snitch`: "Sneaky Snitch" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `monkeys-spinning-monkeys`: "Monkeys Spinning Monkeys" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `fluffing-a-duck`: "Fluffing a Duck" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `bossa-antigua`: "Bossa Antigua" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `funkorama`: "Funkorama" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `hitman`: "Hitman" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
+- `8bit-dungeon-level`: "8bit Dungeon Level" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 — http://creativecommons.org/licenses/by/4.0/
