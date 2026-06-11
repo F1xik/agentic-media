@@ -135,7 +135,6 @@ describe("evaluateSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("Octopuses have three hearts"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",

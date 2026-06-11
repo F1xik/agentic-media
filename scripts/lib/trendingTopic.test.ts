@@ -95,7 +95,6 @@ describe("pickTrendingTopic", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("space"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",

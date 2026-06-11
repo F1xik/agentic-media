@@ -169,7 +169,6 @@ describe("evaluateImageCandidates", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("0: file="),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",

@@ -227,7 +227,6 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("space"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",
@@ -262,7 +261,6 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("Olympic swimming"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",
@@ -287,7 +285,6 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("deep sea creatures"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",
@@ -313,7 +310,6 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("fact is not surprising"),
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",
@@ -342,12 +338,11 @@ describe("requestGenerationSpec", () => {
 });
 
 describe("buildClaudeArgs", () => {
-  it("runs bare with the minimal system prompt and JSON output", () => {
+  it("replaces the system prompt with the minimal one and emits JSON output", () => {
     const args = buildClaudeArgs({ prompt: "hi", model: "m" });
     expect(args).toEqual([
       "-p",
       "hi",
-      "--bare",
       "--system-prompt",
       MINIMAL_SYSTEM_PROMPT,
       "--model",
