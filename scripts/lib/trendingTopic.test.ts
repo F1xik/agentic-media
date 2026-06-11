@@ -5,13 +5,12 @@ import {
   parseTrendingTopic,
   pickTrendingTopic,
   TRENDING_MODEL,
-  TRENDING_EFFORT,
 } from "./trendingTopic.ts";
+import { MINIMAL_SYSTEM_PROMPT } from "./generationSpec.ts";
 
 describe("model selection", () => {
-  it("picks trends with Sonnet 4.6 at low effort", () => {
-    expect(TRENDING_MODEL).toBe("claude-sonnet-4-6");
-    expect(TRENDING_EFFORT).toBe("low");
+  it("picks trends with the cheaper Haiku 4.5", () => {
+    expect(TRENDING_MODEL).toBe("claude-haiku-4-5-20251001");
   });
 });
 
@@ -96,10 +95,10 @@ describe("pickTrendingTopic", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("space"),
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
-      "claude-sonnet-4-6",
-      "--effort",
-      "low",
+      "claude-haiku-4-5-20251001",
       "--allowedTools",
       "WebSearch",
       "--output-format",

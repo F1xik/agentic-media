@@ -1,10 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import {
+  MINIMAL_SYSTEM_PROMPT,
   SpecValidationError,
+  buildClaudeArgs,
   buildPrompt,
   parseGenerationSpec,
   requestGenerationSpec,
+  unwrapResultEnvelope,
   MAX_FACT_LENGTH,
   MAX_HOOK_LENGTH,
 } from "./generationSpec.ts";
@@ -224,10 +227,14 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("space"),
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "",
       "--output-format",
       "json",
     ]);
@@ -254,10 +261,14 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("Olympic swimming"),
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "",
       "--output-format",
       "json",
     ]);
@@ -274,10 +285,14 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("deep sea creatures"),
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "",
       "--output-format",
       "json",
     ]);
@@ -295,10 +310,14 @@ describe("requestGenerationSpec", () => {
     expect(run).toHaveBeenCalledWith("claude", [
       "-p",
       expect.stringContaining("fact is not surprising"),
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
       "--model",
       "claude-sonnet-4-6",
       "--effort",
       "medium",
+      "--allowedTools",
+      "",
       "--output-format",
       "json",
     ]);
@@ -315,5 +334,55 @@ describe("requestGenerationSpec", () => {
     const prompt = run.mock.calls[0][1][1];
     expect(prompt).toContain("Your fact must be NEW");
     expect(prompt).toContain("- Honey never spoils.");
+  });
+});
+
+describe("buildClaudeArgs", () => {
+  it("replaces the system prompt with the minimal one and emits JSON output", () => {
+    const args = buildClaudeArgs({ prompt: "hi", model: "m" });
+    expect(args).toEqual([
+      "-p",
+      "hi",
+      "--system-prompt",
+      MINIMAL_SYSTEM_PROMPT,
+      "--model",
+      "m",
+      "--output-format",
+      "json",
+    ]);
+  });
+
+  it("omits --effort and --allowedTools when not provided", () => {
+    const args = buildClaudeArgs({ prompt: "hi", model: "m" });
+    expect(args).not.toContain("--effort");
+    expect(args).not.toContain("--allowedTools");
+  });
+
+  it("includes --effort and --allowedTools when provided (empty string strips tools)", () => {
+    const args = buildClaudeArgs({
+      prompt: "hi",
+      model: "m",
+      effort: "low",
+      allowedTools: "",
+    });
+    expect(args).toContain("--effort");
+    expect(args[args.indexOf("--effort") + 1]).toBe("low");
+    expect(args).toContain("--allowedTools");
+    expect(args[args.indexOf("--allowedTools") + 1]).toBe("");
+  });
+});
+
+describe("unwrapResultEnvelope", () => {
+  it("returns the inner result string from a JSON envelope", () => {
+    expect(unwrapResultEnvelope(JSON.stringify({ result: "inner" }))).toBe(
+      "inner",
+    );
+  });
+
+  it("falls back to raw stdout when not an envelope", () => {
+    expect(unwrapResultEnvelope("not json")).toBe("not json");
+    expect(unwrapResultEnvelope(JSON.stringify({ other: 1 }))).toBe(
+      JSON.stringify({ other: 1 }),
+    );
   });
 });

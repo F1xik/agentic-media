@@ -14,8 +14,10 @@ import sharp from "sharp";
 
 import {
   type CommandRunner,
+  buildClaudeArgs,
   defaultRunner,
   extractJsonObject,
+  unwrapResultEnvelope,
 } from "./generationSpec.ts";
 
 /** Thumbnail size the candidates are downscaled to before judging. The judge
@@ -162,29 +164,17 @@ export async function evaluateImageCandidates({
   const { paths, cleanup } = await writeCandidateTempFiles(images);
   try {
     const prompt = buildImageEvalPrompt(ctx, candidates, paths);
-    const stdout = await run("claude", [
-      "-p",
-      prompt,
-      "--model",
-      IMAGE_EVAL_MODEL,
-      "--effort",
-      IMAGE_EVAL_EFFORT,
-      "--allowedTools",
-      "Read",
-      "--output-format",
-      "json",
-    ]);
+    const stdout = await run(
+      "claude",
+      buildClaudeArgs({
+        prompt,
+        model: IMAGE_EVAL_MODEL,
+        effort: IMAGE_EVAL_EFFORT,
+        allowedTools: "Read",
+      }),
+    );
 
-    // `--output-format json` wraps the reply in an envelope: { result, ... }.
-    let result = stdout;
-    try {
-      const envelope = JSON.parse(stdout) as { result?: unknown };
-      if (typeof envelope.result === "string") result = envelope.result;
-    } catch {
-      // Not an envelope (e.g. mocked plain output); fall through to parse raw.
-    }
-
-    return parseImageChoice(result, candidates.length);
+    return parseImageChoice(unwrapResultEnvelope(stdout), candidates.length);
   } finally {
     await cleanup();
   }
