@@ -6,7 +6,13 @@ import { App } from "./App";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    // Don't refetch the (Postgres-backed) video lists on every window focus, and
+    // treat data as fresh briefly, to cut redundant request churn.
+    queries: { refetchOnWindowFocus: false, staleTime: 30_000 },
+  },
+});
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

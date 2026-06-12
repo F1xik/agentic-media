@@ -34,10 +34,19 @@ describe("ffmpegArgs", () => {
       "-shortest",
       "-t",
       "30",
+      "-movflags",
+      "+faststart",
       "-vf",
       kenBurnsFilter(),
       "out.mp4",
     ]);
+  });
+
+  it("encodes with faststart so the moov atom is at the front of the mp4", () => {
+    const args = ffmpegArgs("frame.png", "music.mp3", "out.mp4");
+    const i = args.indexOf("-movflags");
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe("+faststart");
   });
 
   it("applies a centered zoom that renders back to the portrait frame", () => {

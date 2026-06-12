@@ -18,20 +18,27 @@ export function useVideos(statusFilter?: VideoStatus | VideoStatus[]) {
   });
 }
 
-export function useSignedVideoUrl(videoPath: string | null) {
+// Signed-URL queries are gated behind an explicit `enabled` flag so the dashboard
+// does not mint a signed URL (or let the browser download the mp4) for every card
+// on list render — only when the owner actually plays or downloads a clip. This is
+// the change that keeps routine browsing from blowing through Storage egress.
+export function useSignedVideoUrl(videoPath: string | null, enabled = true) {
   return useQuery({
     queryKey: ["signed-url", videoPath],
     queryFn: () => getSignedVideoUrl(videoPath!),
-    enabled: !!videoPath,
+    enabled: enabled && !!videoPath,
     staleTime: 50 * 60 * 1000,
   });
 }
 
-export function useSignedVideoDownloadUrl(videoPath: string | null) {
+export function useSignedVideoDownloadUrl(
+  videoPath: string | null,
+  enabled = true,
+) {
   return useQuery({
     queryKey: ["download-url", videoPath],
     queryFn: () => getSignedVideoDownloadUrl(videoPath!),
-    enabled: !!videoPath,
+    enabled: enabled && !!videoPath,
     staleTime: 50 * 60 * 1000,
   });
 }
