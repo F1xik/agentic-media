@@ -110,6 +110,11 @@ export function ffmpegArgs(
     "-shortest",
     "-t",
     String(DURATION_SECONDS),
+    // Move the moov atom to the front so a player can start/scrub with a small
+    // ranged read instead of pulling the whole file to find metadata. This is
+    // what keeps dashboard playback from blowing through Storage egress.
+    "-movflags",
+    "+faststart",
     "-vf",
     kenBurnsFilter(),
     outPath,

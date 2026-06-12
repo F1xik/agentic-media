@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type Video } from "./api";
 import { useSignedVideoUrl, useSignedVideoDownloadUrl } from "./useVideos";
 import { useApproveVideo, useRejectVideo } from "./useApproveVideo";
@@ -7,10 +8,20 @@ interface Props {
 }
 
 export function VideoCard({ video }: Props) {
+  // Click-to-load: nothing is fetched from Storage until the owner presses Play.
+  const [playing, setPlaying] = useState(false);
+  // Arm the download signed URL only once the user signals intent (hover/focus/
+  // tap on the Download control), so we don't mint a signed URL per card.
+  const [wantDownload, setWantDownload] = useState(false);
+
   const { data: signedUrl, isLoading: urlLoading } = useSignedVideoUrl(
     video.video_path,
+    playing,
   );
-  const { data: downloadUrl } = useSignedVideoDownloadUrl(video.video_path);
+  const { data: downloadUrl } = useSignedVideoDownloadUrl(
+    video.video_path,
+    wantDownload,
+  );
   const approve = useApproveVideo();
   const reject = useRejectVideo();
   const isPending = approve.isPending || reject.isPending;
@@ -20,13 +31,23 @@ export function VideoCard({ video }: Props) {
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       {video.video_path && (
         <div className="bg-slate-100">
-          {urlLoading ? (
+          {!playing ? (
+            <button
+              type="button"
+              onClick={() => setPlaying(true)}
+              className="flex h-40 w-full items-center justify-center text-sm font-medium text-slate-500 hover:bg-slate-200"
+            >
+              ▶ Play
+            </button>
+          ) : urlLoading ? (
             <div className="flex h-40 items-center justify-center text-sm text-slate-400">
               Loading video…
             </div>
           ) : signedUrl ? (
             <video
               controls
+              autoPlay
+              preload="metadata"
               className="w-full"
               style={{ maxHeight: "320px" }}
               src={signedUrl}
@@ -68,6 +89,12 @@ export function VideoCard({ video }: Props) {
             href={downloadUrl ?? undefined}
             download
             aria-disabled={!downloadUrl}
+            // Mint the signed download URL on intent (hover/focus/tap) instead of
+            // for every card on render. By the time the click lands the href is
+            // usually ready; until then the link stays disabled (as before).
+            onMouseEnter={() => setWantDownload(true)}
+            onFocus={() => setWantDownload(true)}
+            onPointerDown={() => setWantDownload(true)}
             className={`inline-block rounded bg-blue-600 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-blue-700 ${
               downloadUrl ? "" : "pointer-events-none opacity-50"
             }`}
