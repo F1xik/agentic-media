@@ -163,15 +163,15 @@ describe("listExpiredVideos", () => {
     mockFrom.mockReturnValue({ select: mockSelect });
 
     const before = Date.now();
-    const result = await listExpiredVideos(30);
+    const result = await listExpiredVideos(2);
 
     expect(mockFrom).toHaveBeenCalledWith("videos");
     expect(mockSelect).toHaveBeenCalledWith("id, video_path");
     expect(mockNot).toHaveBeenCalledWith("video_path", "is", null);
-    // cutoff is ~30 days before now.
+    // cutoff is ~2 days (48 hours) before now.
     const [column, cutoff] = mockLt.mock.calls[0];
     expect(column).toBe("created_at");
-    const expected = before - 30 * 24 * 60 * 60 * 1000;
+    const expected = before - 2 * 24 * 60 * 60 * 1000;
     expect(Date.parse(cutoff as string)).toBeGreaterThanOrEqual(
       expected - 5000,
     );

@@ -1,7 +1,7 @@
 name: Cleanup expired videos
 
 on:
-  # 30-day Storage retention: delete mp4 objects whose rows have outlived the
+  # 48-hour Storage retention: delete mp4 objects whose rows have outlived the
   # window. Runs daily at 03:00 UTC, offset from generate.yml's 09:00 run.
   schedule:
     - cron: "0 3 * * *"
