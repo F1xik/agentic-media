@@ -107,6 +107,23 @@ describe("VideoCard", () => {
     expect(link).toHaveAttribute("href", "https://signed-download");
   });
 
+  it("keeps the disabled Download link interactive so it can arm itself", () => {
+    // Regression: a `pointer-events-none` disabled state would swallow the
+    // hover/pointer events that mint the signed URL, deadlocking the button.
+    render(<VideoCard video={baseVideo} />);
+    const link = screen.getByText("Download");
+    expect(link).not.toHaveAttribute("href");
+    expect(link.className).not.toContain("pointer-events-none");
+  });
+
+  it("prevents navigation when the Download URL is not ready yet", () => {
+    render(<VideoCard video={baseVideo} />);
+    const link = screen.getByText("Download");
+    // No href yet; the onClick guard should cancel the (empty) navigation.
+    const notCancelled = fireEvent.click(link);
+    expect(notCancelled).toBe(false);
+  });
+
   it("does not show a Download link when there is no video_path", () => {
     render(<VideoCard video={{ ...baseVideo, video_path: null }} />);
     expect(screen.queryByText("Download")).not.toBeInTheDocument();
