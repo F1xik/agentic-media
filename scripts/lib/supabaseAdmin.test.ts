@@ -372,7 +372,19 @@ describe("deleteVideoObject", () => {
     expect(mockRemove).toHaveBeenCalledWith(["video-uuid.mp4"]);
   });
 
-  it("throws when Supabase returns an error", async () => {
+  it("treats an already-absent object as success (idempotent)", async () => {
+    const mockRemove = vi.fn().mockResolvedValue({
+      error: { message: "Object not found", status: 404 },
+    });
+    mockStorageFrom.mockReturnValue({ remove: mockRemove });
+
+    // A manually-deleted mp4 must not throw, so cleanup can still clear the
+    // dangling video_path instead of failing the row on every run.
+    await expect(deleteVideoObject("gone.mp4")).resolves.toBeUndefined();
+    expect(mockRemove).toHaveBeenCalledWith(["gone.mp4"]);
+  });
+
+  it("throws when Supabase returns a genuine error", async () => {
     mockStorageFrom.mockReturnValue({
       remove: vi.fn().mockResolvedValue({ error: new Error("remove error") }),
     });

@@ -45,6 +45,28 @@ describe("cleanup", () => {
     );
   });
 
+  it("clears video_path for an already-deleted object (deleteVideoObject is idempotent)", async () => {
+    vi.mocked(listExpiredVideos).mockResolvedValue([
+      { id: "gone", video_path: "gone.mp4" },
+    ]);
+    // The mp4 was already removed manually, so the idempotent delete resolves
+    // without throwing; cleanup should still clear the dangling video_path.
+    vi.mocked(deleteVideoObject).mockResolvedValue();
+    vi.mocked(updateVideo).mockResolvedValue();
+    vi.mocked(appendLog).mockResolvedValue();
+
+    const deleted = await cleanup();
+
+    expect(deleted).toBe(1);
+    expect(updateVideo).toHaveBeenCalledWith("gone", { video_path: null });
+    expect(appendLog).toHaveBeenCalledWith(
+      "gone",
+      "cleanup",
+      "info",
+      "deleted expired video from storage",
+    );
+  });
+
   it("passes the retention window through to listExpiredVideos", async () => {
     vi.mocked(listExpiredVideos).mockResolvedValue([]);
 

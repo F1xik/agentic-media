@@ -181,10 +181,28 @@ export async function uploadVideo(
   return path;
 }
 
-/** Delete a video object from Storage by its path (retention cleanup). */
+/**
+ * Delete a video object from Storage by its path (retention cleanup).
+ * Idempotent: an already-absent object is treated as success, so a
+ * manually-deleted mp4 still lets cleanup clear the dangling `video_path`
+ * instead of failing that row on every run. Genuine errors still throw.
+ */
 export async function deleteVideoObject(path: string): Promise<void> {
   const { error } = await adminClient.storage.from("videos").remove([path]);
-  if (error) throw error;
+  if (error && !isObjectNotFound(error)) throw error;
+}
+
+/** True when a Storage error means the object simply isn't there (404). */
+function isObjectNotFound(error: unknown): boolean {
+  const e = error as {
+    message?: string;
+    status?: number;
+    statusCode?: string | number;
+  };
+  if (e.status === 404 || e.statusCode === 404 || e.statusCode === "404") {
+    return true;
+  }
+  return /not.?found/i.test(e.message ?? "");
 }
 
 /** Download a video object from Storage by its path, as a Buffer. */
