@@ -72,7 +72,7 @@ describe("cleanup", () => {
 
     await cleanup();
 
-    expect(listExpiredVideos).toHaveBeenCalledWith(30);
+    expect(listExpiredVideos).toHaveBeenCalledWith(2);
   });
 
   it("is a no-op when nothing is expired", async () => {

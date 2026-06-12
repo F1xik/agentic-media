@@ -1,4 +1,4 @@
-// Retention cleanup orchestrator (CLAUDE.md: 30-day Storage retention policy):
+// Retention cleanup orchestrator (CLAUDE.md: 48-hour Storage retention policy):
 // list videos whose mp4 has outlived the retention window → delete each object
 // from Storage → clear `video_path` (keeping the row + run_logs for history).
 
@@ -11,7 +11,7 @@ import {
   appendLog,
 } from "./lib/supabaseAdmin.ts";
 
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = 2;
 
 /**
  * Delete Storage objects for videos older than `retentionDays`, clearing each

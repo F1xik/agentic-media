@@ -84,7 +84,7 @@ export async function getVideo(id: string): Promise<VideoRow> {
  * the cleanup job to free Storage while keeping the rows for history.
  */
 export async function listExpiredVideos(
-  olderThanDays = 30,
+  olderThanDays = 2,
 ): Promise<{ id: string; video_path: string }[]> {
   const cutoff = new Date(
     Date.now() - olderThanDays * 24 * 60 * 60 * 1000,
