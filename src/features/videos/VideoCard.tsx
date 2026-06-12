@@ -91,12 +91,19 @@ export function VideoCard({ video }: Props) {
             aria-disabled={!downloadUrl}
             // Mint the signed download URL on intent (hover/focus/tap) instead of
             // for every card on render. By the time the click lands the href is
-            // usually ready; until then the link stays disabled (as before).
+            // usually ready; until then the link looks disabled. We must NOT use
+            // `pointer-events-none` for the disabled state: that would swallow
+            // the very hover/pointer events meant to arm the fetch, deadlocking
+            // the button. Instead we keep it interactive and just block a
+            // premature click (before the URL resolves) via onClick.
             onMouseEnter={() => setWantDownload(true)}
             onFocus={() => setWantDownload(true)}
             onPointerDown={() => setWantDownload(true)}
+            onClick={(e) => {
+              if (!downloadUrl) e.preventDefault();
+            }}
             className={`inline-block rounded bg-blue-600 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-blue-700 ${
-              downloadUrl ? "" : "pointer-events-none opacity-50"
+              downloadUrl ? "" : "opacity-50"
             }`}
           >
             Download
