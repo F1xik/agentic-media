@@ -23,16 +23,6 @@ Run a single test file: `npx vitest run src/path/to/file.test.tsx`
 
 **All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)`; changed behaviour gets updated tests. Tests live next to the source file they cover (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
 
-Pre-commit hook runs `lint && format:check && typecheck` — all three must pass before commit.
-
-CI pipeline (`.github/workflows/ci.yml`) runs lint → format:check → typecheck → build → test.
-
-Before committing, run the full CI check sequence locally:
-
-```bash
-npm run lint && npm run format:check && npm run typecheck && npm run build && npm run test
-```
-
 ## Architecture
 
 `agentic-media` is an automated faceless-YouTube Shorts content pipeline. The three main systems are:
@@ -44,8 +34,6 @@ GitHub Actions (generate.yml, publish.yml)   ←→   Supabase (Postgres + Stora
 **Why this split:** Vercel Hobby functions are too small for FFmpeg and the heavy pipeline secrets. All rendering and YouTube publishing run in GitHub Actions; Vercel hosts only the dashboard with the anon key.
 
 ### Frontend (`src/`)
-
-Stack: React 18, TypeScript, Vite 6, Tailwind v4 (`@tailwindcss/vite`), TanStack Query v5, react-router v7.
 
 - **No `useEffect`+fetch** — use TanStack Query for all data fetching.
 - Code is organized as `src/features/<name>/` — each feature has `api.ts` (raw Supabase calls), `use*.ts` (TanStack hooks), and page/component files.
