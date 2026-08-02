@@ -1,4 +1,4 @@
-// Generation orchestrator (see docs/tasks/10-generate-script.md):
+// Generation orchestrator:
 // topic selection → Claude fact → background image → text composite → render →
 // upload + record, producing a `pending_review` video row.
 

@@ -1,5 +1,5 @@
-// YouTube upload wrapper (see docs/tasks/14-publish-script.md). Kept as a thin,
-// mockable module so publish.ts can be unit-tested without the live API.
+// YouTube upload wrapper. Kept as a thin, mockable module so publish.ts can
+// be unit-tested without the live API.
 
 import { Readable } from "node:stream";
 

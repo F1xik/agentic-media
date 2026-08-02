@@ -16,8 +16,9 @@ Tracks were trimmed to ~40s clips (128 kbps, 44.1 kHz) from the full-length
 originals to keep the repository small; the render step only needs ≥30s of audio.
 
 The **filename** (without extension) is the stable identifier Claude selects via
-`music: <filename>`. The **mood** tag lets the generation script match a track to
-the video's tone.
+`music: <filename>`: Claude picks one exact track id from the flat list below to
+match the video's tone. The **mood** column is descriptive metadata for humans
+browsing this file, not something the pipeline matches on programmatically.
 
 | Filename                   | Title                    | Mood         | Source                                                                                        |
 | -------------------------- | ------------------------ | ------------ | --------------------------------------------------------------------------------------------- |

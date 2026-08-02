@@ -57,9 +57,11 @@ Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
 - `videos` — one row per video; status follows the state machine below.
 - `run_logs` — append-only per-video step log.
 
-**Migrations** in `supabase/migrations/` are applied automatically by `.github/workflows/migrate.yml` when commits that touch `supabase/migrations/**` land on `main`. The workflow uses two Actions secrets: `SUPABASE_ACCESS_TOKEN` (personal access token from supabase.com/dashboard/account/tokens) and `SUPABASE_DB_PASSWORD` (database password from Project Settings → Database). The workflow can also be triggered manually via `workflow_dispatch`. No manual `supabase db push` is needed after secrets are set.
+**Migrations**: the schema lives in a single consolidated file, `supabase/migrations/0001_initial_schema.sql` (originally built up as 4 sequential migrations, squashed into one once the project stabilized — a fresh clone only ever needs to run one file). It's applied automatically by `.github/workflows/migrate.yml` when commits that touch `supabase/migrations/**` land on `main`. The workflow uses three Actions secrets: `SUPABASE_ACCESS_TOKEN` (personal access token from supabase.com/dashboard/account/tokens), `SUPABASE_DB_PASSWORD` (database password from Project Settings → Database), and `SUPABASE_PROJECT_REF` (the project ref used to `supabase link`, kept out of the workflow file itself since the repo is public). The workflow can also be triggered manually via `workflow_dispatch`. No manual `supabase db push` is needed after secrets are set.
 
-**Owner configuration:** `is_owner()` compares `auth.uid()` against the single owner row in `public.app_config` (see migration `0003`). After creating the owner user, run once in the SQL editor:
+> **Reconciling an already-provisioned project:** `supabase db push` tracks applied migrations by version (the leading digits of the filename) in a ledger table (`supabase_migrations.schema_migrations`) inside the linked database. If your project's schema already exists but isn't recorded in that ledger — check with `supabase migration list --linked` — `db push` will try to (re-)apply `0001_initial_schema.sql` and fail since the objects already exist. Run `supabase migration repair --status applied 0001 --linked` once (after `supabase link`) to mark version `0001` as already-applied without re-running its SQL, then re-check with `migration list` that `local`/`remote` both show `0001`. A brand-new project with no prior migration history just runs `db push` normally.
+
+**Owner configuration:** `is_owner()` compares `auth.uid()` against the single owner row in `public.app_config`. After creating the owner user, run once in the SQL editor:
 
 ```sql
 insert into public.app_config (id, owner_id)
@@ -68,8 +70,6 @@ on conflict (id) do update set owner_id = excluded.owner_id;
 ```
 
 Until a row exists, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
-
-> Earlier migrations keyed `is_owner()` to the `app.owner_id` Postgres GUC via `alter database postgres set ...`. That fails on hosted Supabase (`42501: permission denied to set parameter` — the project role is not a superuser), so `0003` moved owner identification to `app_config`.
 
 ### `videos.status` state machine
 
@@ -97,7 +97,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
+GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `YT_PRIVACY_STATUS` (optional, one of `private`/`unlisted`/`public`, defaults to `private`), `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
 
 Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only), `GITHUB_REPOSITORY` (`owner/repo` the dispatch route targets), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` (or the `VITE_`-prefixed equivalents) so `api/dispatch.ts` can validate the caller's session. The route fires `repository_dispatch` events `generate_video` (with an optional free-text `topic` client payload typed in the dashboard) and `publish_video` (with a `video_id` client payload).
 
