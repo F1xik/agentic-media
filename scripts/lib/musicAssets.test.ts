@@ -1,12 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import {
-  listTrackFiles,
-  parseCredits,
-  getAttribution,
-  tracksByMood,
-  listMoods,
-} from "./musicAssets.ts";
+import { listTrackFiles, parseCredits, getAttribution } from "./musicAssets.ts";
 
 describe("music assets", () => {
   it("commits at least 3 playable tracks", () => {
@@ -48,20 +42,5 @@ describe("music assets", () => {
 
   it("throws for an unknown track id", () => {
     expect(() => getAttribution("does-not-exist")).toThrow(/no music track/i);
-  });
-
-  it("filters tracks by mood and lists available moods", () => {
-    const moods = listMoods();
-    expect(moods.length).toBeGreaterThan(0);
-
-    expect(tracksByMood()).toEqual(parseCredits());
-
-    for (const mood of moods) {
-      const tracks = tracksByMood(mood);
-      expect(tracks.length).toBeGreaterThan(0);
-      expect(tracks.every((t) => t.mood === mood)).toBe(true);
-    }
-
-    expect(tracksByMood("no-such-mood")).toEqual([]);
   });
 });

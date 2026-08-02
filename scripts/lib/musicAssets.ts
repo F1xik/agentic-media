@@ -74,14 +74,3 @@ export function getAttribution(track: string): string {
   if (!found) throw new Error(`No music track with id "${id}"`);
   return found.attribution;
 }
-
-/** Tracks filtered by mood, or all tracks when no mood is given. */
-export function tracksByMood(mood?: string): MusicTrack[] {
-  const all = parseCredits();
-  return mood ? all.filter((t) => t.mood === mood) : all;
-}
-
-/** Distinct mood tags available across the committed tracks, sorted. */
-export function listMoods(): string[] {
-  return [...new Set(parseCredits().map((t) => t.mood))].sort();
-}

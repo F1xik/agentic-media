@@ -1,4 +1,4 @@
-// Publish orchestrator (see docs/tasks/14-publish-script.md):
+// Publish orchestrator:
 // read an approved video row → download its mp4 from Storage → upload to
 // YouTube Shorts → record `youtube_id`/`youtube_url`, idempotently.
 

@@ -32,6 +32,9 @@ concurrency:
   group: evals-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   evals:
     runs-on: ubuntu-latest
@@ -50,6 +53,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Run prompt evals
+        # Forked-PR runs get no repository secrets, so this step is expected to fail (not skip) on external PRs rather than leak the token.
         run: npm run eval
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

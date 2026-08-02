@@ -19,6 +19,9 @@ concurrency:
   group: publish-${{ github.event.client_payload.video_id || inputs.video_id }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
