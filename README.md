@@ -4,6 +4,8 @@ An automated, faceless YouTube Shorts pipeline: an AI agent picks a topic, write
 
 Built to explore agentic pipelines with a real human-in-the-loop gate, running entirely on free tiers (GitHub Actions, Supabase, Vercel, Claude Pro).
 
+**Live example:** [Dose of Facts](https://youtube.com/@dose-of-facts-channel) is a YouTube channel running on this pipeline — every video is generated, reviewed, and published end-to-end by the flow described below.
+
 ## What it does
 
 1. **Pick a topic** — a trending-topic lookup (or a manually supplied topic) anchors the fact so it isn't generic.
