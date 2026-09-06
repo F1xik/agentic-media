@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
 ## Commands
 
@@ -19,49 +19,45 @@ npm run preview      # preview the production build
 
 Run a single test file: `npx vitest run src/path/to/file.test.tsx`
 
-**Prompt evals vs. unit tests.** `*.test.ts` files are deterministic and mock the `claude` CLI; they run in `npm run test` and CI. `scripts/evals/*.eval.ts` are **real** model-graded evals that spawn the live `claude` CLI: the producer eval grades real output with an LLM judge (`scripts/lib/factGrader.ts`), and the evaluator eval checks the evaluator accepts good specs and rejects bad ones. They run via `npm run eval` (config `vitest.eval.config.ts`, which retries to absorb model variance) and are excluded from `npm run test` because the default `**/*.test.ts` glob doesn't match `*.eval.ts`. The `evals.yml` workflow runs them on any change to the prompt files (`generationSpec.ts`, `specEvaluator.ts`, `factGrader.ts`) or the eval suite, gating prompt changes on `CLAUDE_CODE_OAUTH_TOKEN`.
+**Prompt evals vs. unit tests.** `*.test.ts` files are deterministic, mock the `claude` CLI, and run in `npm run test` / CI. `scripts/evals/*.eval.ts` (producer, evaluator, image selection, trending) are **real** model-graded evals that spawn the live `claude` CLI, run via `npm run eval` (`vitest.eval.config.ts`, retries to absorb model variance), and are excluded from `npm run test`. The `evals.yml` workflow runs them, gated on `CLAUDE_CODE_OAUTH_TOKEN`, whenever a prompt file (`generationSpec.ts`, `specEvaluator.ts`, `factGrader.ts`, `imageEvaluator.ts`, `trendingTopic.ts`) or the eval suite changes.
 
-**All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)`; changed behaviour gets updated tests. Tests live next to the source file they cover (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
+**All code changes must be covered by tests.** New modules get a co-located `*.test.ts(x)` next to the source file (`scripts/lib/foo.test.ts`, `src/features/bar/api.test.ts`).
 
 ## Architecture
 
-`agentic-media` is an automated faceless-YouTube Shorts content pipeline. The three main systems are:
+`agentic-media` is an automated faceless-YouTube Shorts content pipeline:
 
 ```
 GitHub Actions (generate.yml, publish.yml)   ←→   Supabase (Postgres + Storage)   ←→   Vercel (React dashboard)
 ```
 
-**Why this split:** Vercel Hobby functions are too small for FFmpeg and the heavy pipeline secrets. All rendering and YouTube publishing run in GitHub Actions; Vercel hosts only the dashboard with the anon key.
+**Why this split:** Vercel Hobby functions are too small for FFmpeg and the heavy pipeline secrets, so all rendering and YouTube publishing run in GitHub Actions; Vercel hosts only the dashboard with the anon key.
 
 ### Frontend (`src/`)
 
-- **No `useEffect`+fetch** — use TanStack Query for all data fetching.
-- Code is organized as `src/features/<name>/` — each feature has `api.ts` (raw Supabase calls), `use*.ts` (TanStack hooks), and page/component files.
-- Shared Supabase browser client lives in `src/lib/supabase.ts` (anon key, subject to RLS).
-- Vercel serverless route at `api/dispatch.ts` authenticates via the owner's Supabase session and forwards `repository_dispatch` events to GitHub using a fine-grained PAT. It holds no Supabase service-role or YouTube secrets.
+- **No `useEffect`+fetch** — use TanStack Query for data fetching.
+- `src/features/<name>/` — each feature has `api.ts` (raw Supabase calls), `use*.ts` (TanStack hooks), and page/component files.
+- Shared Supabase browser client: `src/lib/supabase.ts` (anon key, subject to RLS).
+- `api/dispatch.ts` — Vercel serverless route; authenticates via the owner's Supabase session and forwards `repository_dispatch` events to GitHub with a fine-grained PAT. Holds no service-role or YouTube secrets.
 
 ### Pipeline scripts (`scripts/`)
 
-Node + TypeScript scripts run by GitHub Actions workflows:
+Node + TypeScript, run by GitHub Actions:
 
-- `scripts/generate.ts` — orchestrates image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation runs a **producer→evaluator feedback loop** (`scripts/lib/producer.ts`): Claude **Sonnet 4.6** (at `medium` effort) produces a spec, a second call to Claude **Sonnet 4.6** (also at `medium` effort, `scripts/lib/specEvaluator.ts`) cross-checks it on factual accuracy/format/engagement/novelty, and the critique is fed back for retries before the video reaches `pending_review` (or `failed` if never approved). To avoid repeats, the last 5 created facts (`recentFacts` in `supabaseAdmin.ts`) are passed to both roles via `avoidFacts`: the producer is told to write a different fact up front, and the evaluator rejects any spec that duplicates or paraphrases one of them. Model per role is set via the CLI `--model` flag (`GENERATION_MODEL` / `EVALUATION_MODEL`); each role's reasoning depth is set via `--effort` (`GENERATION_EFFORT` / `EVALUATION_EFFORT`). Effort is Sonnet/Opus-only; the Haiku grader doesn't pass it. Every pipeline `claude` call is assembled by `buildClaudeArgs` (`generationSpec.ts`): it replaces the full Claude Code agent system prompt with a one-line minimal `--system-prompt` (`MINIMAL_SYSTEM_PROMPT`) and strips unused tool schemas (`--allowedTools ""` on the producer/evaluator), trimming fixed input-token overhead without touching prompt text or effort. `defaultRunner` also spawns the CLI from the OS temp dir (not the repo root) so the project's `CLAUDE.md` isn't auto-discovered into these JSON-only tasks. (Note: the CLI's `--bare` flag would skip CLAUDE.md too, but it reads auth strictly from `ANTHROPIC_API_KEY` and never the `CLAUDE_CODE_OAUTH_TOKEN` this pipeline uses, so it is not usable here.) The trending-topic picker (`trendingTopic.ts`) is a cheap web-grounded lookup, so it uses **Haiku 4.5** (no effort) rather than Sonnet.
-- `scripts/publish.ts` — YouTube Shorts upload via `googleapis`, sets video status. Must include `#Shorts` in the title or description so YouTube classifies the upload correctly.
-- `scripts/cleanup.ts` — 48-hour Storage retention. Lists videos whose `created_at` is older than 48 hours and still have a `video_path` (`listExpiredVideos`), deletes each mp4 from the `videos` bucket (`deleteVideoObject`), and clears `video_path` while keeping the row + `run_logs` for history. Per-row failures are logged and skipped so one bad object doesn't abort the batch.
-- `scripts/lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
+- `generate.ts` — orchestrates topic pick, image fetch (Pexels), text compositing (sharp), FFmpeg render, Storage upload, DB insert. Text generation is a **producer→evaluator loop** (`lib/producer.ts`): Claude Sonnet 4.6 at `medium` effort drafts a spec, a second Sonnet 4.6 call (`lib/specEvaluator.ts`, also `medium`) checks it for factual accuracy/format/engagement/novelty, and the critique feeds back into retries until approved (or `failed`). The last 5 facts (`recentFacts` in `supabaseAdmin.ts`) are passed to both roles so neither repeats itself. Every pipeline `claude` call goes through `buildClaudeArgs` (`generationSpec.ts`), which swaps the full agent system prompt for a one-line minimal one and strips tool schemas to cut fixed token overhead; `defaultRunner` also spawns from the OS temp dir so this repo's own CLAUDE.md isn't auto-loaded. The trending-topic picker (`trendingTopic.ts`) is a cheap web-grounded lookup on Haiku 4.5 instead of Sonnet. Music is picked by the same spec (one of the tracks in `assets/music/`, resolved via `lib/musicAssets.ts`) and its attribution is stored on the row.
+- `publish.ts` — uploads to YouTube Shorts via `googleapis`; idempotent (no-ops if `youtube_id` is already set). Title/description always include `#Shorts` so YouTube classifies it correctly.
+- `cleanup.ts` — 48-hour Storage retention: lists videos whose mp4 has outlived the window, deletes each Storage object, and clears `video_path` (keeping the row + `run_logs`). Per-row failures are logged and skipped so one bad object doesn't abort the batch.
+- `lib/supabaseAdmin.ts` — service-role client. **Must never be imported by the frontend.**
 
 ### Database (Supabase)
 
-Three tables with RLS policies keyed to a single owner via `public.is_owner()`:
+Three tables, RLS keyed to a single owner via `public.is_owner()`: `topics` (seed areas + used counts), `videos` (one row per video, status per the state machine below), `run_logs` (append-only per-video step log).
 
-- `topics` — predefined seed areas and used counts to bias Claude.
-- `videos` — one row per video; status follows the state machine below.
-- `run_logs` — append-only per-video step log.
+**Migrations** live in one file, `supabase/migrations/0001_initial_schema.sql`, applied automatically by `.github/workflows/migrate.yml` on pushes to `main` that touch `supabase/migrations/**` (or manually via `workflow_dispatch`). Needs `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF` as Actions secrets.
 
-**Migrations**: the schema lives in a single consolidated file, `supabase/migrations/0001_initial_schema.sql` (originally built up as 4 sequential migrations, squashed into one once the project stabilized — a fresh clone only ever needs to run one file). It's applied automatically by `.github/workflows/migrate.yml` when commits that touch `supabase/migrations/**` land on `main`. The workflow uses three Actions secrets: `SUPABASE_ACCESS_TOKEN` (personal access token from supabase.com/dashboard/account/tokens), `SUPABASE_DB_PASSWORD` (database password from Project Settings → Database), and `SUPABASE_PROJECT_REF` (the project ref used to `supabase link`, kept out of the workflow file itself since the repo is public). The workflow can also be triggered manually via `workflow_dispatch`. No manual `supabase db push` is needed after secrets are set.
+> **Reconciling an already-provisioned project:** if the schema already exists but isn't recorded in the migrations ledger (check with `supabase migration list --linked`), `db push` will fail trying to re-apply `0001`. Run `supabase migration repair --status applied 0001 --linked` once, then re-verify with `migration list`.
 
-> **Reconciling an already-provisioned project:** `supabase db push` tracks applied migrations by version (the leading digits of the filename) in a ledger table (`supabase_migrations.schema_migrations`) inside the linked database. If your project's schema already exists but isn't recorded in that ledger — check with `supabase migration list --linked` — `db push` will try to (re-)apply `0001_initial_schema.sql` and fail since the objects already exist. Run `supabase migration repair --status applied 0001 --linked` once (after `supabase link`) to mark version `0001` as already-applied without re-running its SQL, then re-check with `migration list` that `local`/`remote` both show `0001`. A brand-new project with no prior migration history just runs `db push` normally.
-
-**Owner configuration:** `is_owner()` compares `auth.uid()` against the single owner row in `public.app_config`. After creating the owner user, run once in the SQL editor:
+**Owner configuration:** `is_owner()` checks `auth.uid()` against the single row in `public.app_config`. After creating the owner user, run once in the SQL editor:
 
 ```sql
 insert into public.app_config (id, owner_id)
@@ -69,7 +65,7 @@ select true, id from auth.users where email = '<owner-email>'
 on conflict (id) do update set owner_id = excluded.owner_id;
 ```
 
-Until a row exists, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
+Until that row exists, `is_owner()` returns false and all rows are invisible to authenticated sessions. The service-role key (Actions only) bypasses RLS.
 
 ### `videos.status` state machine
 
@@ -79,33 +75,29 @@ generating → pending_review → approved → publishing → published
 * → failed (terminal)
 ```
 
-Transitions: `generate.yml` inserts at `generating` and advances to `pending_review` on success. Dashboard Approve/Reject moves to `approved`/`rejected`. `publish.yml` (triggered by `repository_dispatch`) handles `approved → publishing → published`.
+`generate.yml` inserts at `generating`, advances to `pending_review` on success. Dashboard Approve/Reject moves to `approved`/`rejected`. `publish.yml` handles `approved → publishing → published`.
 
 ### GitHub Actions workflows
 
-- `generate.yml` — `schedule:` cron + `repository_dispatch: types: [generate_video]` + `workflow_dispatch` (with an optional `topic` input). Calls Claude Code headless (`CLAUDE_CODE_OAUTH_TOKEN`), fetches a Pexels image (`PEXELS_API_KEY`), composites text with sharp, renders mp4 with FFmpeg, uploads to Supabase Storage. An optional subject (dashboard input → `client_payload.topic`, or the `workflow_dispatch` input) is passed to `generate.ts` via the `GENERATION_TOPIC` env var; when set it anchors the fact and skips the automatic trending pick.
-- `publish.yml` — `repository_dispatch: types: [publish_video]`. Downloads mp4, uploads to YouTube, updates row. **Idempotent:** no-ops if `youtube_id` is already set.
-- `cleanup.yml` — `schedule:` cron (daily 03:00 UTC) + `workflow_dispatch`. Runs `npm run cleanup` with `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` to enforce the 30-day Storage retention policy (deletes expired mp4s, clears `video_path`, keeps rows).
-- `evals.yml` — `pull_request`/`push` filtered to the prompt files + eval suite (plus `workflow_dispatch`). Runs `npm run eval` (real model-graded prompt evals) with `CLAUDE_CODE_OAUTH_TOKEN`, so prompt changes are gated on the evals passing.
+- `ci.yml` — lint, format check, typecheck, build, test on every push/PR.
+- `generate.yml` — daily `schedule:` cron + `repository_dispatch: generate_video` + `workflow_dispatch` (optional `topic` input). Runs the generation pipeline; an optional subject (dashboard or manual input) is passed via `GENERATION_TOPIC` and skips the automatic trending pick.
+- `publish.yml` — `repository_dispatch: publish_video` (or manual, with a `video_id` input). Uploads the approved video to YouTube.
+- `cleanup.yml` — daily `schedule:` cron + `workflow_dispatch`. Enforces the 48-hour Storage retention policy.
+- `evals.yml` — runs the real model-graded prompt evals when prompt files or the eval suite change; gates those changes on the evals passing.
 
 ### Environment variables
 
-Frontend (`.env.local`):
+Frontend (`.env.local`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 
-```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-```
+GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `YT_PRIVACY_STATUS` (optional, `private`/`unlisted`/`public`, defaults to `private`).
 
-GitHub Actions secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`, `YT_PRIVACY_STATUS` (optional, one of `private`/`unlisted`/`public`, defaults to `private`), `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `PEXELS_API_KEY`.
-
-Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT scoped to this repo, dispatch only), `GITHUB_REPOSITORY` (`owner/repo` the dispatch route targets), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` (or the `VITE_`-prefixed equivalents) so `api/dispatch.ts` can validate the caller's session. The route fires `repository_dispatch` events `generate_video` (with an optional free-text `topic` client payload typed in the dashboard) and `publish_video` (with a `video_id` client payload).
+Vercel env: `GITHUB_DISPATCH_TOKEN` (fine-grained PAT, dispatch-only), `GITHUB_REPOSITORY` (`owner/repo`), plus `SUPABASE_URL`/`SUPABASE_ANON_KEY` for `api/dispatch.ts` to validate the caller's session.
 
 ## Key constraints
 
 - Service-role key and YouTube secrets live **only** in GitHub Actions secrets — never in Vercel or the browser.
-- YouTube Shorts uploads via an unverified API project land as **private**; the owner manually publishes in YouTube Studio (or applies for a compliance audit). Default `privacyStatus` to `private`.
-- The upload must include `#Shorts` in the title or description — YouTube uses this to classify vertical videos as Shorts.
-- Background image from Pexels (`PEXELS_API_KEY` GitHub Actions secret, `https://api.pexels.com/v1/search`). `fetchBestBackground` (`scripts/lib/backgroundImage.ts`) fetches 3 distinct candidates (one `per_page=30` search, first 3 distinct-by-`id` photos, downloaded in parallel) and an LLM judge (`scripts/lib/imageEvaluator.ts`, Claude **Sonnet 4.6** at `low` effort) picks the best match against the spec's `image_prompt`/`topic`/`fact_text`. The judge is **vision-based**: it writes each candidate to a temp thumbnail and reads the actual pixels via the CLI's `Read` tool (`--allowedTools Read`), using each photo's `alt`/`avg_color` only as a hint — so it can reject shots where the subject is tiny/distant/cluttered, not just trust alt text. Always implement a gradient/solid fallback so a missing key or failed fetch doesn't block the pipeline; the judge defaults to the first candidate if its call fails (temp files are always cleaned up).
-- Text is composited onto the image with `sharp` (SVG overlay), not ffmpeg `drawtext`, to avoid font-path and escaping issues.
+- YouTube uploads via an unverified API project land as **private**; the owner publishes manually in YouTube Studio. Default `privacyStatus` to `private`.
+- Uploads must include `#Shorts` in the title or description so YouTube classifies them as Shorts.
+- Background image comes from Pexels: `fetchBestBackground` (`lib/backgroundImage.ts`) fetches 3 distinct candidates, and a vision-based LLM judge (`lib/imageEvaluator.ts`, Sonnet 4.6 at `low` effort) picks the best match by reading the actual thumbnail pixels, not just alt text. A gradient/solid fallback means a missing key or failed fetch never blocks the pipeline; the judge defaults to the first candidate on failure.
+- Text is composited with `sharp` (SVG overlay), not ffmpeg `drawtext`, to avoid font-path/escaping issues.
 - Claude Pro OAuth token expires ~1 year from issuance — note the rotation date.
